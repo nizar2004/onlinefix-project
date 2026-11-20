@@ -1,0 +1,3 @@
+Pillow>=10.0
+tkinterweb>=4.2
+vdf>=3.4

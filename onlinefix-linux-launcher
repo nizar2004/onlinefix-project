@@ -1,0 +1,12 @@
+#!/bin/sh
+# Launcher entry point (used by the generated .desktop shortcuts).
+DIR=$(dirname "$(readlink -f "$0")")
+
+# Prefer the bundled virtualenv (Pillow, tkinterweb, …) when present.
+if [ -x "$DIR/.venv/bin/python" ]; then
+    PYTHON="$DIR/.venv/bin/python"
+else
+    PYTHON=python3
+fi
+
+exec "$PYTHON" "$DIR/main.py" "$@"

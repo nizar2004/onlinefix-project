@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build output
+AppDir/
+*.AppImage
+dist/
+
+# Local debris
+*.log
+launcher.lock
