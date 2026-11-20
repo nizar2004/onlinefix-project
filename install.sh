@@ -27,6 +27,7 @@ BOLD=$'\033[1m'; DIM=$'\033[2m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\0
 info()  { printf '%s==>%s %s\n' "$GREEN" "$RESET" "$*"; }
 warn()  { printf '%s[warning]%s %s\n' "$YELLOW" "$RESET" "$*" >&2; }
 error() { printf '%s[error]%s %s\n' "$RED" "$RESET" "$*" >&2; }
+hint()  { printf '%s%s%s\n' "$DIM" "$*" "$RESET"; }
 
 usage() { sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0; }
 
@@ -100,6 +101,7 @@ fi
 
 # ---------------------------------------------------------------- app files
 info "Installing application files to $APP_DIR"
+rm -rf "$APP_DIR"          # clean install — removes any stale files
 mkdir -p "$APP_DIR" "$BIN_DIR" "$APPS_DIR"
 
 rsync_bin=""
