@@ -34,6 +34,42 @@ _EXTRA_MIME = {
 }
 
 
+def _sniff_image(head: bytes) -> str | None:
+    """Return the mime type of an image from its magic bytes."""
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if head[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    if head.startswith(b"\x00\x00\x01\x00"):
+        return "image/x-icon"
+    if head.startswith(b"BM"):
+        return "image/bmp"
+    return None
+
+
+def _pick_folder(initial: str | None = None) -> dict:
+    """Native folder dialog (zenity/kdialog); JS falls back to a path input."""
+    import subprocess
+    start = initial or os.path.expanduser("~")
+    for cmd in (
+        ["zenity", "--file-selection", "--directory", "--title=Select folder"],
+        ["kdialog", "--getexistingdirectory", start],
+    ):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True,
+                                  timeout=300, cwd=BASE_DIR)
+            path = (out.stdout or "").strip()
+            if out.returncode == 0 and path and os.path.isdir(path):
+                return {"ok": True, "path": path}
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+    return {"ok": False, "error": "folder picker unavailable"}
+
+
 def _spawn_tk_mode(mode: str, arg: str | None = None) -> dict:
     """Open one of the classic Tk windows in a separate process."""
     try:
@@ -95,19 +131,29 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, fh.read(), ctype, cache=cache)
 
     def _serve_image(self, query: str) -> None:
-        """Serve a local image file (banners/icons referenced by Games.ini)."""
+        """Serve a local image file (banners/icons referenced by Games.ini).
+
+        The classic launcher stores icons with an extension-less random
+        name, so the type is sniffed from the content instead of the file
+        name.  Only real image formats are served.
+        """
         path = (parse_qs(query).get("path") or [""])[0]
         if not path or not os.path.isfile(path):
             self._send(404, b"not found", "text/plain")
             return
-        ext = os.path.splitext(path)[1].lower()
-        if ext not in (".png", ".jpg", ".jpeg", ".webp", ".ico", ".bmp"):
+        try:
+            if os.path.getsize(path) > 24 * 1024 * 1024:
+                self._send(403, b"too large", "text/plain")
+                return
+            with open(path, "rb") as fh:
+                head = fh.read(16)
+        except OSError:
+            self._send(404, b"not found", "text/plain")
+            return
+        ctype = _sniff_image(head)
+        if not ctype:
             self._send(403, b"forbidden", "text/plain")
             return
-        ctype = "image/png" if ext == ".png" else \
-            "image/webp" if ext == ".webp" else \
-            "image/x-icon" if ext == ".ico" else \
-            "image/bmp" if ext == ".bmp" else "image/jpeg"
         with open(path, "rb") as fh:
             self._send(200, fh.read(), ctype, cache=True)
 
@@ -126,10 +172,14 @@ class Handler(BaseHTTPRequestHandler):
         route = parsed.path
         backend = self.server.backend  # type: ignore[attr-defined]
 
-        if route == "/api/games":
-            self._json(backend.list_games())
-        elif route == "/api/state":
-            self._json({**backend.state(), "mode": ui_mode})
+        if route in ("/api/games", "/api/state"):
+            self._json(self._read_api(route, backend))
+        elif route == "/api/launcher":
+            self._json(backend.launcher_config())
+        elif route == "/api/protons":
+            self._json(backend.installed_protons())
+        elif route == "/api/protons/progress":
+            self._json(backend.proton_progress())
         elif route == "/api/banner":
             self._serve_image(parsed.query)
         elif route == "/api/icon":
@@ -141,13 +191,23 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._json({"error": "not found"}, 404)
 
+    @staticmethod
+    def _read_api(route: str, backend) -> object:
+        if route == "/api/games":
+            return backend.list_games()
+        return {**backend.state(), "mode": ui_mode}
+
     def do_POST(self):
         parsed = urlparse(self.path)
         route = parsed.path
         backend = self.server.backend  # type: ignore[attr-defined]
         body = self._body()
 
-        if route == "/api/launch":
+        if route == "/api/games":
+            self._json(backend.list_games())
+        elif route == "/api/state":
+            self._json({**backend.state(), "mode": ui_mode})
+        elif route == "/api/launch":
             name = str(body.get("name") or "")
             ok = bool(name and backend.games.has_section(name))
             if not ok:
@@ -164,13 +224,57 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 open_path(str(body.get("target") or ""))
                 self._json({"ok": True})
+        elif route == "/api/scan":
+            self._json(backend.scan(str(body.get("path") or "")))
+        elif route == "/api/pick-folder":
+            self._json(_pick_folder(body.get("path") or None))
         elif route == "/api/add-game":
-            self._json(_spawn_tk_mode("--add-game"))
+            self._json(backend.add_game(
+                str(body.get("name") or ""),
+                str(body.get("executable") or ""),
+                body.get("mainPath") or None))
+        elif route == "/api/extract":
+            self._json(backend.extract_archive(
+                str(body.get("archive") or ""),
+                str(body.get("name") or "")))
+        elif route == "/api/game":
+            self._json(backend.get_game(str(body.get("name") or "")))
+        elif route == "/api/game-save":
+            self._json(backend.set_game(
+                str(body.get("name") or ""),
+                body.get("data") or {},
+                body.get("newName") or None))
+        elif route == "/api/game-remove":
+            self._json(backend.remove_game(str(body.get("name") or "")))
+        elif route == "/api/game-art":
+            self._json(backend.set_art(
+                str(body.get("name") or ""),
+                str(body.get("kind") or "banner"),
+                str(body.get("image") or "")))
+        elif route == "/api/shortcut":
+            self._json(backend.create_shortcut(str(body.get("name") or "")))
+        elif route == "/api/protons":
+            self._json(backend.installed_protons())
+        elif route == "/api/protons/latest":
+            self._json(backend.proton_latest())
+        elif route == "/api/protons/download":
+            self._json(backend.proton_download(
+                str(body.get("name") or ""),
+                str(body.get("url") or "")))
+        elif route == "/api/protons/progress":
+            self._json(backend.proton_progress())
+        elif route == "/api/protons/cancel":
+            self._json(backend.cancel_proton_download())
+        elif route == "/api/launcher":
+            self._json(backend.launcher_config())
+        elif route == "/api/launcher-set":
+            self._json(backend.launcher_set(
+                str(body.get("key") or ""), body.get("value")))
         elif route == "/api/open-settings":
             self._json(_spawn_tk_mode("--tk"))
         elif route == "/api/game-settings":
             self._json(_spawn_tk_mode("--game-settings",
-                                      str(body.get("name") or "")))
+                                      str(body.get("name") or "") or None))
         elif route == "/api/window":
             self._json(self._window_action(str(body.get("action") or "")))
         else:

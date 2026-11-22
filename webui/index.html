@@ -44,6 +44,14 @@
         </svg>
         <span>Community</span>
       </a>
+      <a class="nav-item" data-page="runners" href="#">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect class="sq" x="2.6" y="2.6" width="18.8" height="18.8" rx="6"/>
+          <rect class="cut" x="7.2" y="9.6" width="9.6" height="5.6" rx="1.2"/>
+          <path class="cutline" d="M10.6 9.6V7.2h2.8v2.4M9 15.2v1.6M15 15.2v1.6"/>
+        </svg>
+        <span>Runners</span>
+      </a>
     </nav>
 
     <div class="nav-bottom">
@@ -87,7 +95,6 @@
             <path d="M12 3.6a4.9 4.9 0 0 0-4.9 4.9c0 3.5-1 4.8-1.9 5.7-.4.4-.1 1.1.5 1.1h12.6c.6 0 .9-.7.5-1.1-.9-.9-1.9-2.2-1.9-5.7A4.9 4.9 0 0 0 12 3.6z"/>
             <path d="M10.2 17.8a1.9 1.9 0 0 0 3.6 0"/>
           </svg>
-          <span class="notif-dot"></span>
         </button>
         <button class="icon-btn" id="cartBtn" title="Cart">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -125,7 +132,6 @@
             <img class="hero-img" src="/assets/img/stray-hero.jpg" alt="Stray">
           </div>
           <div class="hero-shade"></div>
-
           <div class="chips" id="heroChips"></div>
         </div>
 
@@ -181,38 +187,184 @@
       </div>
     </section>
 
-    <!-- ──────────────────── PAGE · SETTINGS ──────────────────── -->
-    <section class="page page-settings" id="page-settings">
-      <div class="offers-head"><h2>Settings</h2></div>
-      <div class="settings-card">
-        <div class="set-row">
-          <div>
-            <div class="set-title">Classic settings</div>
-            <div class="set-sub">Launcher paths, Proton versions, prefixes and about</div>
+    <!-- ──────────────────── PAGE · ADD GAME ──────────────────── -->
+    <section class="page page-addgame" id="page-addgame">
+      <div class="offers-head">
+        <h2>Add a Game</h2>
+        <button class="btn-add" id="wzBack">← Cancel</button>
+      </div>
+
+      <div class="form-card">
+        <h3>1 · Find the install</h3>
+        <div class="hint">Pick the folder the game is already installed in, or type its path.
+Supported archives (.rar / .zip / .7z) get extracted for you.</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Game folder</label>
+            <div class="btn-row">
+              <input type="text" id="wz-folder" placeholder="e.g. /home/nizar/Games/Hogwarts">
+              <button class="btn btn-ghost" id="wz-browse">Browse…</button>
+            </div>
           </div>
-          <button class="btn-play" id="openSettingsBtn">Open</button>
         </div>
-        <div class="set-row">
-          <div>
-            <div class="set-title">Games folder</div>
-            <div class="set-sub" id="configDirText">~/.config/OFME-Linux</div>
+        <br>
+        <button class="btn btn-primary" id="wz-scanBtn">Scan folder</button>
+        <div id="wz-scanWrap" hidden>
+          <div class="hint" style="margin-top:16px">2 · Choose the game executable (or an installer archive):</div>
+          <div class="scan-list" id="wz-scanList"></div>
+        </div>
+      </div>
+
+      <div class="form-card" id="wz-nameCard" hidden>
+        <h3>3 · Name your game</h3>
+        <div class="field">
+          <label>Game name</label>
+          <input type="text" id="wz-name" placeholder="Hogwarts Legacy">
+        </div>
+        <br>
+        <button class="btn btn-primary" id="wz-addBtn">Add to library</button>
+      </div>
+    </section>
+
+    <!-- ──────────────────── PAGE · GAME SETTINGS ──────────────────── -->
+    <section class="page page-gamesettings" id="page-gamesettings">
+      <div class="offers-head">
+        <h2 id="gsTitle">Game settings</h2>
+        <button class="btn-add" id="gsBack">← Back to library</button>
+      </div>
+
+      <div class="form-card">
+        <h3>Identity</h3>
+        <div class="hint">The name shown everywhere; renaming keeps your settings.</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Game name</label>
+            <input type="text" id="gs-name">
           </div>
-          <button class="btn-play ghost" id="openFolderBtn">Open folder</button>
-        </div>
-        <div class="set-row">
-          <div>
-            <div class="set-title">Add a Game</div>
-            <div class="set-sub">Scan a folder or install from an installer archive</div>
+          <div class="field">
+            <label>Proton version</label>
+            <select id="gs-proton"></select>
+            <div class="sublabel">“GE-Proton Latest” always resolves to the newest download.</div>
           </div>
-          <button class="btn-play" id="addBtn3">Add</button>
         </div>
-        <div class="set-row">
-          <div>
-            <div class="set-title">About</div>
-            <div class="set-sub" id="versionText">OnlineFix Linux Launcher</div>
+        <div class="field">
+          <label>Executable</label>
+          <input type="text" id="gs-executable">
+          <div class="sublabel">The .exe inside the game folder.</div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Game folder</label>
+            <input type="text" id="gs-mainPath">
+          </div>
+          <div class="field">
+            <label>Wine prefix folder</label>
+            <input type="text" id="gs-prefixPath">
+            <div class="sublabel">Leave empty to use the default layout.</div>
           </div>
         </div>
       </div>
+
+      <div class="form-card">
+        <h3>Launch options</h3>
+        <div class="hint">Applied to the generated Proton command.</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Arguments before the executable</label>
+            <input type="text" id="gs-argsBefore" placeholder="e.g. DXVK_HUD=1">
+          </div>
+          <div class="field">
+            <label>Arguments after the executable</label>
+            <input type="text" id="gs-argsAfter" placeholder="e.g. -windowed">
+          </div>
+        </div>
+        <div class="field">
+          <label>DLL overrides</label>
+          <textarea id="gs-overrides" placeholder="WINEDLLOVERRIDES=d3d12=b;d3d11=b"></textarea>
+          <div class="sublabel">Same keyword/value syntax the old launcher used.</div>
+        </div>
+        <div class="field">
+          <label>Environment variables</label>
+          <textarea id="gs-env" placeholder="VKD3D_DEBUG=name&#10;MANGOHUD=1"></textarea>
+          <div class="sublabel">One KEY=value per line.</div>
+        </div>
+        <div class="field-row">
+          <div class="switch" id="gs-wined3d">
+            <span class="switch-label">Use WineD3D</span>
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </div>
+          <div class="switch" id="gs-nativeWayland">
+            <span class="switch-label">Native Wayland</span>
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </div>
+        </div>
+        <br>
+        <div class="field-row">
+          <div class="switch" id="gs-steamOverlay">
+            <span class="switch-label">Steam overlay</span>
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </div>
+          <div class="field">
+            <label>Fake Steam AppID</label>
+            <input type="text" id="gs-fakeSteamID" placeholder="480">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h3>Artwork</h3>
+        <div class="hint">Banner appears in the store hero, icon in the grid card.</div>
+        <div class="art-row">
+          <img class="art-preview" id="gs-bannerPreview" alt="">
+          <div class="art-actions">
+            <label class="btn btn-ghost" for="gs-bannerFile">Upload banner</label>
+            <input type="file" id="gs-bannerFile" accept="image/*">
+          </div>
+          <img class="art-preview icon" id="gs-iconPreview" alt="">
+          <div class="art-actions">
+            <label class="btn btn-ghost" for="gs-iconFile">Upload icon</label>
+            <input type="file" id="gs-iconFile" accept="image/*">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h3>System</h3>
+        <div class="hint">Integrations and lifecycle.</div>
+        <button class="btn btn-ghost" id="gs-shortcutBtn">Create desktop & menu shortcut</button>
+        <button class="btn btn-ghost" id="gs-folderBtn">Open game folder</button>
+        <button class="btn btn-danger" id="gs-removeBtn">Remove from library</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="gs-saveBtn">Save changes</button>
+        <button class="btn btn-ghost" id="gs-cancelBtn">Cancel</button>
+      </div>
+    </section>
+
+    <!-- ──────────────────── PAGE · RUNNERS ──────────────────── -->
+    <section class="page page-runners" id="page-runners">
+      <div class="offers-head">
+        <h2>Runners</h2>
+        <button class="btn-add" id="runnerAddBtn">+&nbsp; Download latest runner</button>
+      </div>
+      <div class="settings-card" id="runnerCard">
+        <div id="runnerList"></div>
+        <div class="set-row" id="runnerProgress" hidden>
+          <div style="flex:1">
+            <div class="set-title" id="runnerTitle">Downloading…</div>
+            <div class="set-sub" id="runnerStatus"></div>
+            <div class="progress" id="runnerBar"><div class="bar"></div></div>
+          </div>
+          <button class="btn btn-danger" id="runnerCancelBtn">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ──────────────────── PAGE · SETTINGS ──────────────────── -->
+    <section class="page page-settings" id="page-settings">
+      <div class="offers-head"><h2>Settings</h2></div>
+      <div id="settingsBody"></div>
     </section>
 
     <!-- ──────────────────── PAGE · HELP ──────────────────── -->
@@ -220,16 +372,16 @@
       <div class="offers-head"><h2>Help</h2></div>
       <div class="settings-card">
         <div class="set-row">
-          <div><div class="set-title">SteamDB</div><div class="set-sub">Depot &amp; App info for Proton workarounds</div></div>
-          <button class="btn-play ghost" data-url="https://steamdb.info">Open</button>
+          <div><div class="set-title">SteamDB</div><div class="set-sub">Depot & App info for Proton workarounds</div></div>
+          <button class="btn btn-ghost" data-url="https://steamdb.info">Open</button>
         </div>
         <div class="set-row">
           <div><div class="set-title">ProtonDB</div><div class="set-sub">Compatibility reports for running games</div></div>
-          <button class="btn-play ghost" data-url="https://www.protondb.com">Open</button>
+          <button class="btn btn-ghost" data-url="https://www.protondb.com">Open</button>
         </div>
         <div class="set-row">
-          <div><div class="set-title">online-fix.me</div><div class="set-sub">Game fixes and multiplayer patches</div></div>
-          <button class="btn-play ghost" data-url="https://online-fix.me/">Open</button>
+          <div><div class="set-title">Proton GE downloads</div><div class="set-sub">Where the runners come from</div></div>
+          <button class="btn btn-ghost" data-url="https://github.com/GloriousEggroll/proton-ge-custom/releases">Open</button>
         </div>
       </div>
     </section>

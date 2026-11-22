@@ -83,7 +83,12 @@ def generate_desktop_entry(name: str, icon: Optional[str] = None) -> str:
 
 # --------------------------------------------------------------------- launch
 def _error(message: str):
-    from . import dialogs  # deferred: pulls tkinter in (headless mode has none)
+    # deferred: the classic dialogs need Tk, which the web UI does not have
+    try:
+        from . import dialogs
+    except Exception:
+        runtime.log_error(message)
+        return
     ui_call(lambda: dialogs.show_message(runtime.get_root(), message, "ERROR", "error"))
 
 
@@ -464,9 +469,12 @@ def get_third_party(prog: str) -> Optional[str]:
     }
     path = progs.get(prog)
     if not path or not os.path.isfile(path):
-        from . import dialogs
-        ui_call(lambda: dialogs.show_message(
-            runtime.get_root(), i18n._("FILESWORKER.NOSUBMODULE") % path, "ERROR"))
+        try:
+            from . import dialogs
+            ui_call(lambda: dialogs.show_message(
+                runtime.get_root(), i18n._("FILESWORKER.NOSUBMODULE") % path, "ERROR"))
+        except Exception:
+            runtime.log_error("missing helper: %s" % path)
         return None
     try:
         os.chmod(path, os.stat(path).st_mode | 0o111)

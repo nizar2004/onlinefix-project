@@ -11,11 +11,23 @@ reference mockup:
 
 * **Font** — [Outfit](https://fonts.google.com/specimen/Outfit) (bundled, offline)
 * **Colors** — `#141415` · `#df040a` · `#ff6b27` · `#ffffff`
-* Featured-game **hero carousel** with tag chips, friends pill and an
-  info card (price + *Available now*)
-* **Special offers** grid — your real games appear here as soon as they
-  are added; until then the demo catalog is shown
-* Live search, launch/stop, per-game settings, staggered entrance
+* Featured-game **hero carousel** with tag chips and an info card
+  (price + *Available now*), crossfades, ken-burns and auto-advance
+* **Special offers** grid — the reference catalog, with your own games
+  added in front as soon as they exist
+* Every control drives the project's own `Games.ini` / `Launcher.ini`:
+
+  | Page | What it does |
+  | --- | --- |
+  | **Game store** | Hero carousel + offers grid, play/stop and game settings for your games |
+  | **Library** | Everything in `Games.ini`, empty state, add-a-game entry |
+  | **Add a Game** | Native folder picker (zenity/kdialog), folder scan for `.exe`/`.vbs`/`.bat`, `.rar`/`.zip`/`.7z` extraction, name it and add |
+  | **Game settings** | Name/rename, executable, folders, Proton version, launch arguments, DLL overrides, environment variables (`KEY=value` lines), WineD3D/Wayland/Steam-overlay switches, fake AppID, banner/icon upload, desktop & menu shortcut, open folder, remove |
+  | **Runners** | Installed GE-Proton builds, mark latest, download the newest release with live progress and cancel |
+  | **Settings** | Folders (games/Protons/prefixes), default runner/Proton/fix, behaviour switches, config folder, classic-UI escape hatch |
+  | **Help** | SteamDB / ProtonDB / Proton GE links |
+
+* Live search, launch/stop, page transitions, staggered entrance
   animations, hover lifts and glows everywhere
 * Works even on machines without Tk (the classic UI needs `tk`)
 
@@ -86,6 +98,15 @@ app/
   storage.py             Games.ini / Launcher.ini wrapper
   i18n.py                en/ru translations from locale/
   theme.py, widgets.py   dark theme and reusable Tk widgets
+webui/
+  index.html             sidebar, hero, offers, library, wizard, settings
+  css/styles.css         cloned design tokens, layout and animations
+  js/app.js              catalog, carousel, grids, wizard, all API calls
+  assets/                Outfit font, Steam logo, game artwork
+app/
+  webbridge.py           headless backend: games, launch, settings, runners
+  webserver.py           static server + JSON API + window controls
+  webapp.py              pywebview window, single instance, browser fallback
 assets/, locale/         copied from the original project's src/.data and src/locale
 ```
 
