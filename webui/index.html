@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OnlineFix Launcher</title>
+<link rel="stylesheet" href="/css/styles.css">
+<link rel="icon" href="/assets/img/steam.svg">
+</head>
+<body>
+<div class="app" id="app">
+  <div class="app-glow" aria-hidden="true"></div>
+
+  <!-- ══════════════════════════ SIDEBAR ══════════════════════════ -->
+  <aside class="sidebar">
+    <div class="brand pywebview-drag-region">
+      <img class="brand-logo" src="/assets/img/steam.svg" alt="Steam">
+      <span class="brand-name">STEAM<sup>™</sup></span>
+    </div>
+
+    <nav class="nav" id="nav">
+      <span class="nav-indicator" id="navIndicator" aria-hidden="true"></span>
+      <a class="nav-item active" data-page="store" href="#">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect class="sq" x="2.6" y="2.6" width="18.8" height="18.8" rx="6"/>
+          <path class="cut" d="M8.1 9.1h1.7v1.7h1.7v1.7H9.8v1.7H8.1v-1.7H6.4v-1.7h1.7z"/>
+          <circle class="cut" cx="14.7" cy="10.5" r="1.15"/>
+          <circle class="cut" cx="16.6" cy="13.2" r="1.15"/>
+        </svg>
+        <span>Game store</span>
+      </a>
+      <a class="nav-item" data-page="library" href="#">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect class="sq" x="2.6" y="2.6" width="18.8" height="18.8" rx="6"/>
+          <path class="cut" d="M7.2 7.4h4.2v9.8H8.2a1 1 0 0 1-1-1z"/>
+          <path class="cut" d="M12.8 7.4h3.6a1 1 0 0 1 1 1v7.8a1 1 0 0 1-1 1h-3.6z"/>
+        </svg>
+        <span>Library</span>
+      </a>
+      <a class="nav-item" data-page="community" href="#">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect class="sq" x="2.6" y="2.6" width="18.8" height="18.8" rx="6"/>
+          <path class="cut" d="M8.4 8h7.2A1.9 1.9 0 0 1 17.5 9.9v3.4a1.9 1.9 0 0 1-1.9 1.9h-3.4L9 17.4v-2.2h-.6A1.9 1.9 0 0 1 6.5 13.3V9.9A1.9 1.9 0 0 1 8.4 8z"/>
+        </svg>
+        <span>Community</span>
+      </a>
+    </nav>
+
+    <div class="nav-bottom">
+      <a class="nav-item" data-page="settings" href="#">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect class="sq" x="2.6" y="2.6" width="18.8" height="18.8" rx="6"/>
+          <g class="cutline">
+            <circle cx="12" cy="12" r="3.5"/>
+            <path d="M12 7.6V5.6M12 18.4v-2M7.6 12H5.6M18.4 12h-2M8.9 8.9L7.5 7.5M16.5 16.5l-1.4-1.4M16.5 7.5l-1.4 1.4M7.5 16.5l1.4-1.4"/>
+          </g>
+        </svg>
+        <span>Settings</span>
+      </a>
+      <a class="nav-item" data-page="help" href="#">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect class="sq" x="2.6" y="2.6" width="18.8" height="18.8" rx="6"/>
+          <path class="cutline" d="M10.2 10.1c.2-1.2 1-2 2.1-1.9 1.1 0 2 .8 2 1.9 0 1.5-2 1.7-2 3.1"/>
+          <circle class="cut" cx="12.3" cy="16.3" r="1"/>
+        </svg>
+        <span>Help</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════ MAIN ══════════════════════════ -->
+  <main class="main">
+    <header class="topbar">
+      <div class="drag-strip pywebview-drag-region" aria-hidden="true"></div>
+
+      <div class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="5.6"/>
+          <path d="M15.2 15.2L19 19"/>
+        </svg>
+        <input id="searchInput" type="text" placeholder="Search orders" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="top-actions">
+        <button class="icon-btn" id="bellBtn" title="Notifications">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3.6a4.9 4.9 0 0 0-4.9 4.9c0 3.5-1 4.8-1.9 5.7-.4.4-.1 1.1.5 1.1h12.6c.6 0 .9-.7.5-1.1-.9-.9-1.9-2.2-1.9-5.7A4.9 4.9 0 0 0 12 3.6z"/>
+            <path d="M10.2 17.8a1.9 1.9 0 0 0 3.6 0"/>
+          </svg>
+          <span class="notif-dot"></span>
+        </button>
+        <button class="icon-btn" id="cartBtn" title="Cart">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3.8 4.8h2l2.3 9.6a1.7 1.7 0 0 0 1.7 1.3h6.6a1.7 1.7 0 0 0 1.7-1.3l1.4-6.2H6.8"/>
+            <circle cx="10.2" cy="18.9" r="1.25"/>
+            <circle cx="16.4" cy="18.9" r="1.25"/>
+          </svg>
+        </button>
+        <div class="profile">
+          <img class="avatar" src="/assets/img/avatar.jpg" alt="Jenny Wilson">
+          <span class="profile-name">Jenny Wilson</span>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9.3 10.4L12 13.1l2.7-2.7"/>
+          </svg>
+        </div>
+        <div class="win-controls" id="winControls" hidden>
+          <button data-win="minimize" title="Minimise">
+            <svg viewBox="0 0 24 24"><path d="M7 12h10"/></svg>
+          </button>
+          <button data-win="toggle-maximize" title="Maximise">
+            <svg viewBox="0 0 24 24"><rect x="7.5" y="7.5" width="9" height="9" rx="1.6"/></svg>
+          </button>
+          <button data-win="close" class="wc-close" title="Close">
+            <svg viewBox="0 0 24 24"><path d="M8 8l8 8M16 8l-8 8"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ──────────────────── PAGE · GAME STORE ──────────────────── -->
+    <section class="page page-store active" id="page-store">
+      <div class="hero-row">
+        <div class="hero" id="hero">
+          <div class="hero-layer is-active" id="heroLayer0">
+            <img class="hero-img" src="/assets/img/stray-hero.jpg" alt="Stray">
+          </div>
+          <div class="hero-shade"></div>
+
+          <div class="chips" id="heroChips"></div>
+        </div>
+
+        <aside class="info-col">
+          <div class="info-card" id="infoCard">
+            <img class="info-bg" id="infoBg" src="/assets/img/stray-hero.jpg" alt="">
+            <div class="info-shade"></div>
+            <div class="info-body">
+              <h2 class="info-title" id="infoTitle">Stray</h2>
+              <p class="info-desc" id="infoDesc">Lost, alone and separated from family, a stray cat must untangle an ancient mystery to escape a long-forgotten cybercity and find their way home.</p>
+              <div class="info-price" id="infoPrice">$16.99 USD</div>
+              <div class="info-cta">
+                <button class="btn-play" id="playBtn">Available now</button>
+                <svg class="win-logo" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3.4 5.6l6.9-.95v6.15H3.4zM11.3 4.5l9.3-1.3v7.75h-9.3zM3.4 12.2h6.9v6.15l-6.9-.95zM11.3 12.2h9.3v7.75l-9.3-1.3z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="thumbs">
+            <img class="thumb" id="thumb1" src="/assets/img/stray-thumb1.jpg" alt="">
+            <img class="thumb" id="thumb2" src="/assets/img/stray-thumb2.jpg" alt="">
+          </div>
+        </aside>
+      </div>
+
+      <div class="dots" id="dots" role="tablist" aria-label="Featured games"></div>
+
+      <div class="offers-head">
+        <h2>Special offers</h2>
+        <button class="learn-more" id="learnMore">Learn more</button>
+      </div>
+      <div class="offers" id="offers"></div>
+    </section>
+
+    <!-- ──────────────────── PAGE · LIBRARY ──────────────────── -->
+    <section class="page page-library" id="page-library">
+      <div class="offers-head">
+        <h2>Your library</h2>
+        <button class="btn-add" id="addBtn">+&nbsp; Add a Game</button>
+      </div>
+      <div class="offers" id="libraryGrid"></div>
+      <div class="empty" id="libraryEmpty">
+        <p>Your library is empty.<br>Add games you own to organize them<br>and manage their settings.</p>
+        <button class="btn-play" id="addBtn2">Add a Game</button>
+      </div>
+    </section>
+
+    <!-- ──────────────────── PAGE · COMMUNITY ──────────────────── -->
+    <section class="page page-plain" id="page-community">
+      <div class="empty">
+        <p>Nothing here yet.<br>Community spaces are on the way.</p>
+      </div>
+    </section>
+
+    <!-- ──────────────────── PAGE · SETTINGS ──────────────────── -->
+    <section class="page page-settings" id="page-settings">
+      <div class="offers-head"><h2>Settings</h2></div>
+      <div class="settings-card">
+        <div class="set-row">
+          <div>
+            <div class="set-title">Classic settings</div>
+            <div class="set-sub">Launcher paths, Proton versions, prefixes and about</div>
+          </div>
+          <button class="btn-play" id="openSettingsBtn">Open</button>
+        </div>
+        <div class="set-row">
+          <div>
+            <div class="set-title">Games folder</div>
+            <div class="set-sub" id="configDirText">~/.config/OFME-Linux</div>
+          </div>
+          <button class="btn-play ghost" id="openFolderBtn">Open folder</button>
+        </div>
+        <div class="set-row">
+          <div>
+            <div class="set-title">Add a Game</div>
+            <div class="set-sub">Scan a folder or install from an installer archive</div>
+          </div>
+          <button class="btn-play" id="addBtn3">Add</button>
+        </div>
+        <div class="set-row">
+          <div>
+            <div class="set-title">About</div>
+            <div class="set-sub" id="versionText">OnlineFix Linux Launcher</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ──────────────────── PAGE · HELP ──────────────────── -->
+    <section class="page page-settings" id="page-help">
+      <div class="offers-head"><h2>Help</h2></div>
+      <div class="settings-card">
+        <div class="set-row">
+          <div><div class="set-title">SteamDB</div><div class="set-sub">Depot &amp; App info for Proton workarounds</div></div>
+          <button class="btn-play ghost" data-url="https://steamdb.info">Open</button>
+        </div>
+        <div class="set-row">
+          <div><div class="set-title">ProtonDB</div><div class="set-sub">Compatibility reports for running games</div></div>
+          <button class="btn-play ghost" data-url="https://www.protondb.com">Open</button>
+        </div>
+        <div class="set-row">
+          <div><div class="set-title">online-fix.me</div><div class="set-sub">Game fixes and multiplayer patches</div></div>
+          <button class="btn-play ghost" data-url="https://online-fix.me/">Open</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+</div>
+<script src="/js/app.js"></script>
+</body>
+</html>

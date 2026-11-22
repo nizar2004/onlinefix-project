@@ -62,7 +62,7 @@ class Application:
 
         # In-window pages hosted by the main form.
         if self.main_form is None and name in (
-                "gameSettings", "downloads", "log", "envViewer",
+                "gameSettings", "log", "envViewer",
                 "launcherSettings"):
             return None
         if name == "gameSettings":
@@ -70,9 +70,6 @@ class Application:
                 kwargs.get("game_name"),
                 game_icon=kwargs.get("game_icon"),
                 banner=kwargs.get("banner"))
-        if name == "downloads":
-            self.main_form.open_downloads()
-            return self.main_form.downloads_page
         if name == "log":
             game = kwargs.get("game_name") or self.main_form.current_game
             if game:

@@ -10,7 +10,7 @@
 #
 # What it does:
 #   * copies the application into ~/.local/share/onlinefix-launcher
-#   * creates a private virtualenv there (Pillow, tkinterweb)
+#   * creates a private virtualenv there (Pillow, pywebview)
 #   * puts an `onlinefix-launcher` command on your PATH
 #   * adds a menu entry (KDE/GNOME application launcher)
 #   * installs the application icon into the hicolor icon theme

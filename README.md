@@ -1,7 +1,36 @@
 # OnlineFix Linux Launcher (Python port)
 
-A Python/tkinter port of the DevelNext/JPHP **OnlineFix Linux Launcher** (v2.7.1).
-It keeps the original feature set, configuration files, window sizes and dark theme.
+A Python port of the DevelNext/JPHP **OnlineFix Linux Launcher** (v2.7.1).
+It keeps the original feature set, configuration files and window sizes.
+
+## 🎨 New web UI (default)
+
+The launcher now opens in a **frameless native window** driven by a local
+HTTP server + WebKit (via `pywebview`), with a design cloned from the
+reference mockup:
+
+* **Font** — [Outfit](https://fonts.google.com/specimen/Outfit) (bundled, offline)
+* **Colors** — `#141415` · `#df040a` · `#ff6b27` · `#ffffff`
+* Featured-game **hero carousel** with tag chips, friends pill and an
+  info card (price + *Available now*)
+* **Special offers** grid — your real games appear here as soon as they
+  are added; until then the demo catalog is shown
+* Live search, launch/stop, per-game settings, staggered entrance
+  animations, hover lifts and glows everywhere
+* Works even on machines without Tk (the classic UI needs `tk`)
+
+Run modes:
+
+```sh
+./onlinefix-linux-launcher                # new web UI (pywebview window)
+./onlinefix-linux-launcher --tk           # classic Tk UI
+./onlinefix-linux-launcher --add-game     # just the add-game wizard
+./onlinefix-linux-launcher --game-settings "Game Name"
+./onlinefix-linux-launcher "Game Name"    # launch a game directly
+```
+
+If `pywebview`/WebKit is unavailable, the UI opens in a Chrome
+`--app` window instead.
 
 ## Running
 

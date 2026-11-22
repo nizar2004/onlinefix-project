@@ -2,10 +2,8 @@
 """OnlineFix Linux Launcher - Python port."""
 from __future__ import annotations
 
-import tkinter as tk
 
-
-def bootstrap(root: tk.Tk) -> None:
+def bootstrap(root) -> None:
     """Prepare a Tk root window for the launcher.
 
     Call once, right after creating the root, before building any UI.

@@ -71,8 +71,6 @@ class LauncherSettingsPage(tk.Frame):
         rows = (
             ("installs", "Games folder",
              self.app.launcher.get("installsPath", "User Settings") or ""),
-            ("downloads", "Downloads folder",
-             self.app.launcher.get("downloadsPath", "User Settings") or ""),
             ("protons", "Proton versions",
              self.app.launcher_settings.get_base_path_for("protons")),
             ("prefixes", "Wine prefixes",

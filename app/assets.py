@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageTk
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 from . import theme
 

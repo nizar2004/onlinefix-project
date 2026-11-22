@@ -8,13 +8,12 @@ import re
 import shutil
 import subprocess
 import sys
-import tkinter as tk
 import time
 import urllib.request
 from dataclasses import dataclass
 from typing import Optional
 
-from . import dialogs, i18n, runtime
+from . import i18n, runtime
 from .assets import BASE_DIR
 from .process_util import (hook_process_outputs, open_path, popen, run as run_command,
                            wait_for_process, which)
@@ -84,6 +83,7 @@ def generate_desktop_entry(name: str, icon: Optional[str] = None) -> str:
 
 # --------------------------------------------------------------------- launch
 def _error(message: str):
+    from . import dialogs  # deferred: pulls tkinter in (headless mode has none)
     ui_call(lambda: dialogs.show_message(runtime.get_root(), message, "ERROR", "error"))
 
 
@@ -100,6 +100,7 @@ def generate_process(name: str, debug: bool = False) -> Optional[LaunchSpec]:
         if pidof.returncode == 1:
             if not run_steam():
                 def fail():
+                    from . import dialogs
                     dialogs.show_message(runtime.get_root(), i18n._("FILESWORKER.STEAMNOTSTARTED"), "ERROR")
                     main = app.main_form
                     if main and main.visible:
@@ -189,7 +190,7 @@ def run_game_process(spec: LaunchSpec, game_name: str, debug: bool = False) -> i
                 try:
                     form.text_area.insert("end", f"STD{tag} - {line}\n")
                     form.text_area.see("end")
-                except tk.TclError:
+                except Exception:
                     pass  # log page was closed
         runtime.ui_later(add)
 
@@ -463,6 +464,7 @@ def get_third_party(prog: str) -> Optional[str]:
     }
     path = progs.get(prog)
     if not path or not os.path.isfile(path):
+        from . import dialogs
         ui_call(lambda: dialogs.show_message(
             runtime.get_root(), i18n._("FILESWORKER.NOSUBMODULE") % path, "ERROR"))
         return None

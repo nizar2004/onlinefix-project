@@ -115,7 +115,6 @@ class MainForm:
 
         # --- pages -----------------------------------------------------------
         self._build_library_page()
-        self._build_downloads_page()
 
         from .game_detail import GameDetailPage
         self.detail_page = GameDetailPage(self)
@@ -172,7 +171,6 @@ class MainForm:
         nav.pack(fill="x", padx=T.px(6), pady=(T.px(6), 0))
         for key, label, icon_name in (
             ("library", "Library", "library"),
-            ("downloads", "Downloads", "download"),
             ("runners", "Runners", "monitor"),
             ("settings", "Settings", "settings"),
         ):
@@ -195,8 +193,6 @@ class MainForm:
     def _nav(self, key: str):
         if key == "library":
             self.show_library()
-        elif key == "downloads":
-            self.open_downloads()
         elif key == "runners":
             self.open_runners()
         elif key == "settings":
@@ -290,7 +286,7 @@ class MainForm:
         self._filter_games()
 
     def _iter_pages(self):
-        pages = [self.library_page, self.downloads_page, self.detail_page,
+        pages = [self.library_page, self.detail_page,
                  self.runners_page, self.log_page, self.settings_page]
         if self.env_page is not None:
             pages.append(self.env_page)
@@ -329,15 +325,6 @@ class MainForm:
         self._paint_nav("library")
         return self.game_settings_page
 
-    def open_downloads(self):
-        if getattr(self.downloads_page, "_shelf_visible", False):
-            self.downloads_page.refresh_shelf()
-        for page in self._iter_pages():
-            page.pack_forget()
-        self.downloads_page.pack(fill="both", expand=True)
-        self._page = "downloads"
-        self._paint_nav("downloads")
-
     def open_runners(self):
         self.runners_page.refresh()
         for page in self._iter_pages():
@@ -347,10 +334,6 @@ class MainForm:
         self._paint_nav("runners")
 
     # ------------------------------------------------------------------ games
-    def _build_downloads_page(self):
-        from .downloads_page import DownloadsPage
-        self.downloads_page = DownloadsPage(self)
-
     def _load_games(self):
         for name in self.app.games.sections():
             self.add_game(name)
