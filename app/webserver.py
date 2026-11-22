@@ -36,6 +36,12 @@ _EXTRA_MIME = {
 
 def _spawn_tk_mode(mode: str, arg: str | None = None) -> dict:
     """Open one of the classic Tk windows in a separate process."""
+    try:
+        import tkinter  # noqa: F401 — the classic dialogs require Tk
+    except Exception:
+        return {"ok": False,
+                "error": "Tk is not installed — install tk and try again "
+                         "(sudo pacman -S tk)"}
     cmd = [sys.executable, MAIN_PY, mode]
     if arg:
         cmd.append(arg)

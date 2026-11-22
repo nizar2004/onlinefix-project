@@ -299,8 +299,9 @@ function renderGrid(el, list) {
             toast("This is a demo game");
           }
         } else {
-          api("/api/game-settings", { name: game.name });
-          toast(`Opening settings for ${game.name}…`);
+          api("/api/game-settings", { name: game.name })
+            .then((r) => toast(r.ok ? `Opening settings for ${game.name}…`
+                                   : (r.error || "Cannot open settings")));
         }
         return;
       }
@@ -417,14 +418,18 @@ $$(".thumb").forEach((t) =>
   t.addEventListener("click", () => toast("Screenshot viewer is coming soon")));
 
 const openAddGame = () => {
-  api("/api/add-game", {}).then(() => toast("The add-game wizard has opened"));
+  api("/api/add-game", {})
+    .then((r) => toast(r.ok ? "The add-game wizard has opened"
+                           : (r.error || "Cannot open the wizard")));
 };
 $("#addBtn").addEventListener("click", openAddGame);
 $("#addBtn2").addEventListener("click", openAddGame);
 $("#addBtn3").addEventListener("click", openAddGame);
 
 $("#openSettingsBtn").addEventListener("click", () => {
-  api("/api/open-settings", {}).then(() => toast("Classic settings opened"));
+  api("/api/open-settings", {})
+    .then((r) => toast(r.ok ? "Classic settings opened"
+                            : (r.error || "Cannot open settings")));
 });
 $("#openFolderBtn").addEventListener("click", async () => {
   const st = await api("/api/state");
