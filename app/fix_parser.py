@@ -26,11 +26,25 @@ _INIFIX = re.compile(r"(?i)^(online|steam)fix\.ini$")
 _STEAMFIX_DLL = re.compile(r"(?i)^steamfix.*\.dll$")
 _PHOTON = re.compile(r"(?i)^launch_data\.of.*$|^onlinefix\.json$")
 
+# the launcher creates its Wine prefix inside the game folder when no
+# prefixPath is configured — those DLLs are Wine's own, not the fix's
+_PREFIX_DIR_NAMES = {"ofme prefix", "prefix", "pfx", "proton prefix"}
+
+
+def _is_prefix_dir(name: str, path: str) -> bool:
+    """True for the launcher's prefix folder (and anything shaped like one)."""
+    if name.lower() in _PREFIX_DIR_NAMES:
+        return True
+    return os.path.isdir(os.path.join(path, "drive_c"))
+
 
 def _walk_files(path: str):
     if not os.path.isdir(path):
         return
-    for root, _dirs, files in os.walk(path):
+    for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs
+                   if not d.startswith(".")
+                   and not _is_prefix_dir(d, os.path.join(root, d))]
         for name in files:
             yield os.path.join(root, name)
 
@@ -153,6 +167,70 @@ def parse_banner(app_id: str):
 
     log_info("Banner fetched")
     return image_path
+
+
+def read_app_id(path: str):
+    """Steam app id of a game folder (``steam_appid.txt`` or the fix ini).
+
+    OnlineFix releases ship ``steam_appid.txt`` next to the executable, which
+    is the only hint about the real store app for folders without an
+    ``OnlineFix.ini``/``steamfix.ini``.
+    """
+    candidates = []
+    if path and os.path.isdir(path):
+        candidates.append(os.path.join(path, "steam_appid.txt"))
+        try:
+            for root, dirs, files in os.walk(path):
+                dirs[:] = [d for d in dirs
+                           if not d.startswith(".")
+                           and not _is_prefix_dir(d, os.path.join(root, d))]
+                for name in files:
+                    if name.lower() == "steam_appid.txt":
+                        candidates.append(os.path.join(root, name))
+                break
+        except OSError:
+            pass
+    for candidate in candidates:
+        try:
+            with open(candidate, "r", encoding="utf-8", errors="replace") as fh:
+                value = fh.read().strip().splitlines()[0].strip()
+        except (OSError, IndexError):
+            continue
+        if value.isdigit():
+            return value
+    return None
+
+
+def parse_avatar(app_id: str):
+    """Fetch the game's store art and keep it as the launcher avatar.
+
+    The exe icon is preferred (it is the game's own artwork), this is the
+    fallback for folders whose executable carries no resources.
+    """
+    if not app_id:
+        return None
+    images = icons_dir()
+    os.makedirs(images, exist_ok=True)
+    image_path = os.path.join(images, f"avatar{app_id}.png")
+    if os.path.isfile(image_path):
+        return image_path
+    log_info("Trying to fetch avatar from akamai CDN")
+    for url in (f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/capsule_sm.png",
+                f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/header.jpg"):
+        try:
+            request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(request, timeout=15) as response, open(image_path, "wb") as fh:
+                shutil.copyfileobj(response, fh)
+        except Exception as exc:
+            log_error(f"Failed to fetch avatar - {exc}")
+            try:
+                os.remove(image_path)
+            except OSError:
+                pass
+            continue
+        log_info("Avatar fetched")
+        return image_path
+    return None
 
 
 def _random_name() -> str:

@@ -13,6 +13,12 @@ reference mockup:
 * **Colors** — `#141415` · `#df040a` · `#ff6b27` · `#ffffff`
 * Featured-game **hero carousel** with tag chips and an info card
   (price + *Available now*), crossfades, ken-burns and auto-advance
+* The window is **full bleed** — the app fills the native frame edge to edge,
+  no border or backdrop around it
+* **Game avatar + play time** — the info card shows the game's own icon (the
+  exe's embedded artwork, or the store art fetched with the app id from
+  `steam_appid.txt`) next to the title, plus how long the game was played;
+  every store/library card carries the play time as well
 * **Your games** grid — only what is in `Games.ini`, with the hero
   carousel built from those same games
 * **OnlineFix pipeline** — adding or launching a game scans its folder like

@@ -248,6 +248,14 @@ class WebApp:
 
         real_id = parsed.get("realAppId")
         fake_id = parsed.get("fakeAppId")
+        if real_id is None:
+            # no OnlineFix.ini: the game folder may still carry the real
+            # store app id in steam_appid.txt (used for artwork and the
+            # Steam/ProtonDB links of the game)
+            try:
+                real_id = fix_parser.read_app_id(root)
+            except Exception:
+                real_id = None
         if real_id is not None:
             self.games.set("steamID", real_id, name)
         if fake_id is not None:
@@ -267,12 +275,20 @@ class WebApp:
                 except Exception as exc:
                     log_error(f"banner fetch failed: {exc}")
             if not game.get("icon"):
+                # the game's own exe icon first, the store art as fallback
                 try:
                     icon = fix_parser.parse_icon(game.get("executable") or "")
                     if icon and os.path.isfile(icon):
                         self.games.set("icon", icon, name)
                 except Exception as exc:
                     log_error(f"icon extraction failed: {exc}")
+                if not self.games.get("icon", name) and real_id is not None:
+                    try:
+                        avatar = fix_parser.parse_avatar(str(real_id))
+                        if avatar and os.path.isfile(avatar):
+                            self.games.set("icon", avatar, name)
+                    except Exception as exc:
+                        log_error(f"avatar fetch failed: {exc}")
 
         data = self.get_game(name)
         data.update({

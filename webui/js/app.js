@@ -33,10 +33,19 @@ async function api(path, body) {
   }
 }
 
+/* human playtime — same wording as the classic launcher */
 const fmtTime = (s) => {
-  if (!s) return "";
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-  return h ? `${h}h ${m}m` : `${m}m`;
+  s = Math.floor(Number(s) || 0);
+  if (s <= 0) return "Never played";
+  if (s < 60) return "Less than a minute";
+  const minutes = Math.floor(s / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(s / 3600);
+  const rem = Math.floor((s % 3600) / 60);
+  if (hours < 24) return rem ? `${hours} h ${rem} min` : `${hours} h`;
+  const days = Math.floor(hours / 24);
+  const restHours = hours % 24;
+  return restHours ? `${days} d ${restHours} h` : `${days} d`;
 };
 
 const fmtSize = (b) => {
@@ -133,6 +142,24 @@ function renderSlide(i) {
   $("#infoTitle").textContent = s.title;
   $("#infoDesc").textContent = s.desc;
   $("#infoPrice").textContent = s.price || "";
+
+  // the game's own icon (avatar) next to the name
+  const avatar = $("#infoAvatar");
+  if (s.avatar) {
+    avatar.src = s.avatar;
+    avatar.hidden = false;
+    avatar.alt = s.title || "";
+  } else {
+    avatar.removeAttribute("src");
+    avatar.hidden = true;
+  }
+
+  // play time
+  $("#infoPlaytime").innerHTML = s.playTime
+    ? `<svg viewBox="0 0 24 24" aria-hidden="true">
+         <circle cx="12" cy="12" r="8.4"/><path d="M12 7.6V12l3 1.8"/>
+       </svg><span>${esc(s.playTime)}</span>`
+    : "";
 
   const chips = $("#heroChips");
   chips.innerHTML = "";
@@ -257,6 +284,7 @@ function cardHTML(game, idx) {
        style="animation-delay:${0.28 + idx * 0.06}s">
     <img src="${esc(art)}" alt="" loading="lazy" onerror="this.style.display='none'">
     <span class="card-badge">${badge}</span>
+    <span class="card-time">${esc(game.timeSpent ? `Played ${fmtTime(game.timeSpent)}` : "")}</span>
     <span class="card-title">${esc(game.title || game.name)}</span>
     <div class="card-actions">
       ${game.real ? `
@@ -309,11 +337,13 @@ function realAsSlides() {
       cover: bannerUrl || iconUrl,
       banner: g.banner,
       icon: g.icon,
+      avatar: iconUrl,
       thumbs,
       tags: ["Installed",
              g.proton ? "Proton " + g.proton.replace(/^Proton-?/, "") : "Proton"],
       desc: `Installed on your machine · ${played}`,
       price: "In your library",
+      playTime: played,
     };
   });
 }
