@@ -221,7 +221,7 @@ function updatePlayButton() {
 async function launchGame(name) {
   const res = await api("/api/launch", { name });
   if (res.ok) {
-    toast(res.cancelling ? "Cancelling…" : `Launching ${name}…`);
+    toast(res.cancelling ? "Cancelling…" : (res.note || `Launching ${name}…`));
     launchStatus = res.status || "preparing";
   } else {
     toast(res.error || "Could not launch");
@@ -453,7 +453,9 @@ async function addScannedGame() {
   const res = await api("/api/add-game",
     { name, executable, mainPath });
   if (!res.ok) { toast(res.error || "Could not add the game"); return; }
-  toast(`${name} added to your library`);
+  const fix = res.fix || {};
+  toast(fix.found ? `${name} added · OnlineFix detected`
+                  : `${name} added to your library`);
   resetWizard();
   await refreshGames(true);
   switchPage("library", navItem("library"));
@@ -493,6 +495,30 @@ function textToEnv(text) {
 
 function setSwitch(el, on) { el.classList.toggle("on", !!on); }
 
+function renderFixState(g) {
+  const overrides = (g.overrides || "").split(";").map((s) => s.trim()).filter(Boolean);
+  const state = $("#gs-fixState");
+  const detail = $("#gs-fixDetail");
+  if (g.fixPath) state.textContent = "OnlineFix detected";
+  else if (overrides.length) state.textContent = "DLL overrides active";
+  else state.textContent = "No OnlineFix files found";
+
+  const lines = [];
+  if (g.fixPath) lines.push(`Fix folder: ${g.fixPath}`);
+  if (overrides.length) lines.push(`Overrides: ${overrides.join("  ")}`);
+  if (g.steamID) lines.push(`Steam app ${g.steamID}`);
+  lines.push(g.steamOverlay
+    ? `Spacewar ${g.fakeSteamID || "480"} registered by the Steam overlay`
+    : "Steam overlay off — no Spacewar session");
+  if (g.fakeSteamActive) lines.push("fake steam DLLs active");
+  detail.textContent = lines.join(" · ");
+
+  const fake = $("#gs-fakeSteam");
+  setSwitch(fake, g.fakeSteamActive);
+  fake.classList.toggle("disabled", !g.hasSteamfix);
+  fake.title = g.hasSteamfix ? "" : "this fix ships no steamfix32/64.dll to swap";
+}
+
 async function openGameSettings(name) {
   const g = await api("/api/game", { name });
   if (!g || !g.name) { toast("Game not found"); return; }
@@ -510,6 +536,8 @@ async function openGameSettings(name) {
   setSwitch($("#gs-wined3d"), g.wined3d);
   setSwitch($("#gs-nativeWayland"), g.nativeWayland);
   setSwitch($("#gs-steamOverlay"), g.steamOverlay);
+  setSwitch($("#gs-steamRuntime"), g.steamRuntime);
+  renderFixState(g);
 
   const banner = $("#gs-bannerPreview");
   banner.src = g.banner ? artUrl(g.banner, "banner") : "";
@@ -548,6 +576,7 @@ async function saveGameSettings() {
     fakeSteamID: $("#gs-fakeSteamID").value.trim(),
     environment: textToEnv($("#gs-env").value),
     steamOverlay: $("#gs-steamOverlay").classList.contains("on"),
+    steamRuntime: $("#gs-steamRuntime").classList.contains("on"),
     wined3d: $("#gs-wined3d").classList.contains("on"),
     nativeWayland: $("#gs-nativeWayland").classList.contains("on"),
   };
@@ -619,8 +648,36 @@ $("#gs-removeBtn").addEventListener("click", async () => {
   await refreshGames(true);
   switchPage("library", navItem("library"));
 });
-$$("#page-gamesettings .switch").forEach((sw) => {
+$$("#page-gamesettings .switch:not(#gs-fakeSteam)").forEach((sw) => {
   sw.addEventListener("click", () => sw.classList.toggle("on"));
+});
+
+/* OnlineFix card */
+$("#gs-fixDetect").addEventListener("click", async () => {
+  if (!currentGame) return;
+  toast("Scanning the game folder for OnlineFix files…");
+  const res = await api("/api/game-fix", { name: currentGame.name });
+  if (!res.ok) { toast(res.error || "Detection failed"); return; }
+  toast(res.found ? "OnlineFix files applied" : "No OnlineFix files found");
+  await refreshGames(true);
+  openGameSettings(currentGame.name);
+});
+
+$("#gs-fakeSteam").addEventListener("click", async () => {
+  if (!currentGame) return;
+  const el = $("#gs-fakeSteam");
+  if (el.classList.contains("disabled")) {
+    toast("This fix ships no steamfix DLLs to swap");
+    return;
+  }
+  const enabled = !el.classList.contains("on");
+  const res = await api("/api/game-fake-steam",
+    { name: currentGame.name, enabled });
+  if (!res.ok) { toast(res.error || "Could not switch"); return; }
+  setSwitch(el, res.fakeSteamActive);
+  toast(res.fakeSteamActive
+    ? "Fake Steam enabled — the fix boots as Spacewar"
+    : "Real steamfix DLLs restored");
 });
 
 /* ── RUNNERS page ──────────────────────────────────────────────────────── */

@@ -70,6 +70,7 @@ def parse_dlls(path: str):
                 real = ini.get("RealAppId", "Main")
             fake = ini.get("FakeAppId", "Main")
             real_app_id = real
+            fake_app_id = fake
 
             if name.lower() == "steamfix.ini" and not ini.has_section("OnlineFix Linux"):
                 ini.set("RealAppId", fake, "Main")

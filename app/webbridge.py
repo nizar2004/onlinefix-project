@@ -39,7 +39,7 @@ GAME_TEXT_KEYS = (
     "banner", "icon", "notes",
 )
 GAME_BOOL_KEYS = (
-    "steamOverlay", "wined3d", "nativeWayland", "noBanner",
+    "steamOverlay", "steamRuntime", "wined3d", "nativeWayland", "noBanner",
 )
 
 
@@ -135,6 +135,156 @@ class WebApp:
                 return path
         return ""
 
+    # ---------------------------------------------------------------- OnlineFix
+    @staticmethod
+    def _scan_root(game: dict[str, Any]) -> str:
+        """Folder the classic wizard scans for OnlineFix DLLs."""
+        main_path = game.get("mainPath") or ""
+        if main_path and os.path.isdir(main_path):
+            return main_path
+        executable = game.get("executable") or ""
+        return os.path.dirname(executable) if executable else ""
+
+    def _fix_folder(self, name: str) -> str:
+        path = self.games.get("fixPath", name) or ""
+        return path if path and os.path.isdir(path) else ""
+
+    def _steamfix_dlls(self, name: str) -> list[str]:
+        folder = self._fix_folder(name)
+        if not folder:
+            return []
+        try:
+            entries = os.listdir(folder)
+        except OSError:
+            return []
+        return [os.path.join(folder, entry) for entry in entries
+                if entry.lower() in ("steamfix32.dll", "steamfix64.dll")]
+
+    def _fake_steam_active(self, name: str) -> bool:
+        folder = self._fix_folder(name)
+        if not folder:
+            return False
+        try:
+            entries = os.listdir(folder)
+        except OSError:
+            return False
+        return any(entry.endswith(".noofllpath") for entry in entries)
+
+    @staticmethod
+    def _merge_overrides(current: str, found: str) -> str:
+        """Union of both override lists, keeping the user's order first."""
+        seen: set[str] = set()
+        parts: list[str] = []
+        for chunk in f"{current};{found}".split(";"):
+            chunk = chunk.strip()
+            if not chunk or chunk.lower() in seen:
+                continue
+            seen.add(chunk.lower())
+            parts.append(chunk)
+        return ";".join(parts)
+
+    def detect_fixes(self, name: str, fetch_art: bool = True) -> dict[str, Any]:
+        """Port of the classic add-game fix pipeline (FixParser.php).
+
+        Scans the game folder the way ``new_game_configurator`` does, then
+        stores the native DLL overrides, the fix folder and the Steam app ids
+        that ``files_worker.generate_process`` turns into the Proton command:
+        ``WINEDLLOVERRIDES`` makes Proton use the OnlineFix DLLs shipped with
+        the game and the Steam overlay env registers Spacewar (480) so those
+        DLLs see a running Steam game.
+        """
+        if not self.games.has_section(name):
+            return {"ok": False, "error": "game not found"}
+        game = self.get_game(name)
+        root = self._scan_root(game)
+        if not root or not os.path.isdir(root):
+            return {"ok": False, "error": "game folder not found"}
+        try:
+            from . import fix_parser
+            parsed = fix_parser.parse_dlls(root) or {}
+        except Exception as exc:
+            log_error(f"fix scan for {name} failed: {exc}")
+            return {"ok": False, "error": str(exc)}
+
+        # OnlineFix/FreeTP patches inside the folder (steamfix.ini …) have
+        # been applied by parse_dlls at this point, exactly like the wizard.
+        current = game.get("overrides") or ""
+        merged = self._merge_overrides(current, parsed.get("overrides") or "")
+        if merged != current:
+            self.games.set("overrides", merged, name)
+
+        fix_path = parsed.get("fixPath")
+        if fix_path:
+            self.games.set("fixPath", fix_path, name)
+
+        real_id = parsed.get("realAppId")
+        fake_id = parsed.get("fakeAppId")
+        if real_id is not None:
+            self.games.set("steamID", real_id, name)
+        if fake_id is not None:
+            self.games.set("fakeSteamID", fake_id, name)
+
+        # the wizard always enables the overlay: without it Proton never
+        # starts the Spacewar session the fix DLLs talk to
+        if "steamOverlay" not in self.games.section(name):
+            self.games.set("steamOverlay", True, name)
+
+        if fetch_art:
+            if not game.get("banner") and real_id is not None:
+                try:
+                    banner = fix_parser.parse_banner(str(real_id))
+                    if banner and os.path.isfile(str(banner)):
+                        self.games.set("banner", banner, name)
+                except Exception as exc:
+                    log_error(f"banner fetch failed: {exc}")
+            if not game.get("icon"):
+                try:
+                    icon = fix_parser.parse_icon(game.get("executable") or "")
+                    if icon and os.path.isfile(icon):
+                        self.games.set("icon", icon, name)
+                except Exception as exc:
+                    log_error(f"icon extraction failed: {exc}")
+
+        data = self.get_game(name)
+        data.update({
+            "ok": True,
+            "found": bool(parsed),
+            "hasSteamfix": bool(self._steamfix_dlls(name)),
+            "fakeSteamActive": self._fake_steam_active(name),
+        })
+        return data
+
+    def set_fake_steam(self, name: str, enabled: bool) -> dict[str, Any]:
+        """Mirror of the classic “Use fake Steam” switch: swap the fix's
+        steamfix DLLs with the bundled FreeTP ones so the game boots through
+        Spacewar instead of the real Steam client."""
+        if not self.games.has_section(name):
+            return {"ok": False, "error": "game not found"}
+        dlls = self._steamfix_dlls(name)
+        if not dlls:
+            return {"ok": False,
+                    "error": "this fix does not ship steamfix DLLs to swap"}
+        from .assets import asset
+        for dll in dlls:
+            backup = dll + ".noofllpath"
+            try:
+                if enabled:
+                    if not os.path.exists(backup):
+                        os.replace(dll, backup)
+                    source = asset("ftpPath", "ftpPath32.dll"
+                                   if dll.lower().endswith("32.dll")
+                                   else "ftpPath64.dll")
+                    shutil.copy2(source, dll)
+                else:
+                    if os.path.exists(dll):
+                        os.remove(dll)
+                    if os.path.exists(backup):
+                        os.replace(backup, dll)
+            except OSError as exc:
+                log_error(f"fake steam toggle for {name} failed: {exc}")
+                return {"ok": False, "error": str(exc)}
+        return {"ok": True, "fakeSteamActive": self._fake_steam_active(name)}
+
     def get_game(self, name: str) -> dict[str, Any]:
         """Full settings of one game (what the classic form edits)."""
         if not self.games.has_section(name):
@@ -151,6 +301,8 @@ class WebApp:
             banners_dir(), self.games.get("banner", name), name)
         data["icon"] = self._resolve_art(
             icons_dir(), self.games.get("icon", name), name)
+        data["hasSteamfix"] = bool(self._steamfix_dlls(name))
+        data["fakeSteamActive"] = self._fake_steam_active(name)
         return data
 
     def set_game(self, name: str, data: dict[str, Any],
@@ -239,7 +391,17 @@ class WebApp:
             "nativeWayland": self.launcher.get("gamesUsesWayland", "User Settings") or "",
             "timeSpent": 0,
         }, name)
-        return {"ok": True, "name": name}
+        # Run the same OnlineFix detection the classic add-game wizard does:
+        # DLL overrides + fix folder + Steam app ids, plus banner/icon.
+        try:
+            details = self.detect_fixes(name, fetch_art=True)
+        except Exception as exc:
+            log_error(f"fix detection for {name} failed: {exc}")
+            details = {}
+        return {"ok": True, "name": name,
+                "fix": {key: details.get(key) for key in
+                        ("found", "overrides", "fixPath", "steamID",
+                         "fakeSteamID", "hasSteamfix")}}
 
     def extract_archive(self, archive: str, name: str) -> dict[str, Any]:
         """Extract a .rar/.zip/.7z into the installs folder."""
@@ -296,6 +458,15 @@ class WebApp:
         executable = game.get("executable") or ""
         if not executable or not os.path.isfile(executable):
             return {"ok": False, "error": "executable not found"}
+        # Every Play button applies the OnlineFix DLL overrides of the game
+        # folder first, so a game added by hand (or before the fix pipeline
+        # existed) still launches exactly like the classic launcher. Games
+        # that already carry fix settings keep them untouched.
+        if not (game.get("overrides") or game.get("fixPath")):
+            try:
+                self.detect_fixes(name, fetch_art=False)
+            except Exception as exc:
+                log_error(f"fix detection for {name} failed: {exc}")
         if not self.launcher.get_bool("noSteamRequest", "User Settings", False):
             from shutil import which
             if which("steam") is None:
@@ -335,7 +506,19 @@ class WebApp:
                 GLOBALS["launchStatus"] = None
 
         threading.Thread(target=worker, daemon=True, name=f"launch-{name}").start()
-        return {"ok": True, "status": "preparing"}
+        current = self.get_game(name)
+        overlay = bool(current.get("steamOverlay"))
+        fake_id = current.get("fakeSteamID") or "480"
+        has_fix = bool((current.get("overrides") or "").strip()
+                       or current.get("fixPath"))
+        return {
+            "ok": True,
+            "status": "preparing",
+            "steamOverlay": overlay,
+            "fakeSteamID": str(fake_id),
+            "note": (f"Launching {name} · OnlineFix → Spacewar {fake_id}"
+                     if overlay and has_fix else f"Launching {name}"),
+        }
 
     def stop(self) -> dict[str, Any]:
         process = GLOBALS.get("currentGameProcess")

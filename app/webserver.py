@@ -251,6 +251,11 @@ class Handler(BaseHTTPRequestHandler):
                 str(body.get("name") or ""),
                 str(body.get("kind") or "banner"),
                 str(body.get("image") or "")))
+        elif route == "/api/game-fix":
+            self._json(backend.detect_fixes(str(body.get("name") or "")))
+        elif route == "/api/game-fake-steam":
+            self._json(backend.set_fake_steam(
+                str(body.get("name") or ""), bool(body.get("enabled"))))
         elif route == "/api/shortcut":
             self._json(backend.create_shortcut(str(body.get("name") or "")))
         elif route == "/api/protons":

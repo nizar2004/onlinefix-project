@@ -13,8 +13,13 @@ reference mockup:
 * **Colors** — `#141415` · `#df040a` · `#ff6b27` · `#ffffff`
 * Featured-game **hero carousel** with tag chips and an info card
   (price + *Available now*), crossfades, ken-burns and auto-advance
-* **Special offers** grid — the reference catalog, with your own games
-  added in front as soon as they exist
+* **Your games** grid — only what is in `Games.ini`, with the hero
+  carousel built from those same games
+* **OnlineFix pipeline** — adding or launching a game scans its folder like
+  the classic wizard: the fix's DLLs become `WINEDLLOVERRIDES`, `steamfix.ini`
+  gets the FreeTP patch, and the Steam overlay registers **Spacewar (480)**
+  while the game runs. The Game settings page can re-detect the fix and swap
+  the fake-Steam DLLs on demand.
 * Every control drives the project's own `Games.ini` / `Launcher.ini`:
 
   | Page | What it does |
@@ -22,7 +27,7 @@ reference mockup:
   | **Game store** | Hero carousel + offers grid, play/stop and game settings for your games |
   | **Library** | Everything in `Games.ini`, empty state, add-a-game entry |
   | **Add a Game** | Native folder picker (zenity/kdialog), folder scan for `.exe`/`.vbs`/`.bat`, `.rar`/`.zip`/`.7z` extraction, name it and add |
-  | **Game settings** | Name/rename, executable, folders, Proton version, launch arguments, DLL overrides, environment variables (`KEY=value` lines), WineD3D/Wayland/Steam-overlay switches, fake AppID, banner/icon upload, desktop & menu shortcut, open folder, remove |
+  | **Game settings** | Name/rename, executable, folders, Proton version, launch arguments, DLL overrides, environment variables (`KEY=value` lines), WineD3D/Wayland/Steam-overlay/Steam-runtime switches, fake AppID, OnlineFix detection + fake Steam (Spacewar), banner/icon upload, desktop & menu shortcut, open folder, remove |
   | **Runners** | Installed GE-Proton builds, mark latest, download the newest release with live progress and cancel |
   | **Settings** | Folders (games/Protons/prefixes), default runner/Proton/fix, behaviour switches, config folder, classic-UI escape hatch |
   | **Help** | SteamDB / ProtonDB / Proton GE links |

@@ -308,10 +308,30 @@ Supported archives (.rar / .zip / .7z) get extracted for you.</div>
             <span class="switch-label">Steam overlay</span>
             <span class="switch-track"><span class="switch-thumb"></span></span>
           </div>
+          <div class="switch" id="gs-steamRuntime">
+            <span class="switch-label">Steam Linux Runtime</span>
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </div>
           <div class="field">
             <label>Fake Steam AppID</label>
             <input type="text" id="gs-fakeSteamID" placeholder="480">
           </div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h3>OnlineFix</h3>
+        <div class="hint">Read from the fix DLLs shipped with the game. Proton is forced to load them and Steam is told Spacewar (480) is running — the same hand-off the classic launcher performs.</div>
+        <div class="set-row">
+          <div style="flex:1">
+            <div class="set-title" id="gs-fixState">Checking…</div>
+            <div class="set-sub" id="gs-fixDetail">—</div>
+          </div>
+          <button class="btn btn-ghost" id="gs-fixDetect">Detect fixes</button>
+        </div>
+        <div class="switch" id="gs-fakeSteam">
+          <span class="switch-label">Use fake Steam (Spacewar)</span>
+          <span class="switch-track"><span class="switch-thumb"></span></span>
         </div>
       </div>
 
