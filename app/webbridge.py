@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import os
 import shutil
+import subprocess
 import threading
 import time
 import urllib.request
@@ -99,9 +100,37 @@ class WebApp:
                                     "error": None, "cancel": threading.Event()}
 
     # ------------------------------------------------------------------ games
+    def _running_game_name(self) -> Optional[str]:
+        """Name of the game that is running right now.
+
+        Besides the process this launcher started, games that were started by
+        an earlier launcher session are detected as well — otherwise the Stop
+        button would be missing exactly when the game refuses to quit.
+        """
+        running = GLOBALS.get("currentGameName")
+        if running:
+            return running
+        now = time.time()
+        checked = GLOBALS.get("externalRunningAt") or 0
+        if now - checked < 2.0:
+            return GLOBALS.get("externalRunning")
+        found = None
+        for name in self.games.sections():
+            executable = self.games.get("executable", name) or ""
+            if not executable:
+                continue
+            if self._pids_matching(executable, os.path.basename(executable),
+                                   wine_only=True):
+                found = name
+                break
+        GLOBALS["externalRunning"] = found
+        GLOBALS["externalRunningAt"] = now
+        return found
+
     def list_games(self) -> list[dict[str, Any]]:
         """Every game section as a UI-friendly dict."""
         out: list[dict[str, Any]] = []
+        running = self._running_game_name()
         for name in self.games.sections():
             if not name:
                 continue
@@ -117,7 +146,7 @@ class WebApp:
                 "banner": banner,
                 "icon": icon,
                 "timeSpent": spent,
-                "running": GLOBALS.get("currentGameName") == name,
+                "running": running == name,
             })
         return out
 
@@ -520,27 +549,176 @@ class WebApp:
                      if overlay and has_fix else f"Launching {name}"),
         }
 
-    def stop(self) -> dict[str, Any]:
+    def stop(self, name: Optional[str] = None) -> dict[str, Any]:
+        """Stop the running game.
+
+        Proton is started in its own session, so a plain ``terminate()`` only
+        kills the wrapper and leaves wine/the game alive.  We signal the whole
+        process group, ask that prefix's wineserver to quit, and finally reap
+        any process still holding the game executable.
+        """
+        import signal
+
         process = GLOBALS.get("currentGameProcess")
-        name = GLOBALS.get("currentGameName")
+        target = name or GLOBALS.get("currentGameName")
         if process is None:
             if GLOBALS.get("launchStatus") == "preparing":
                 self._cancel_launch.set()
                 return {"ok": True, "cancelling": True}
+            # orphaned session (for example after the launcher restarted):
+            # look for the game executable and stop it anyway
+            if target:
+                executable = self.games.get("executable", target) or ""
+                pids = self._pids_matching(executable,
+                                           os.path.basename(executable),
+                                           wine_only=True)
+                if pids:
+                    self._signal_pids(pids, signal.SIGTERM)
+                    threading.Thread(target=self._reap, args=(pids,),
+                                     daemon=True).start()
+                    log_info(f"Stopped leftover processes of {target}")
+                    return {"ok": True, "stopping": True,
+                            "orphans": len(pids)}
             return {"ok": False, "error": "No game is running"}
-        try:
-            process.terminate()
-        except Exception:
+        executable = ""
+        if target:
+            executable = self.games.get("executable", target) or ""
+        GLOBALS["launchStatus"] = "stopping"
+        threading.Thread(target=self._kill_tree,
+                         args=(process, target, executable),
+                         daemon=True).start()
+        log_info(f"Stopping {target or 'game'}…")
+        return {"ok": True, "stopping": True}
+
+    @staticmethod
+    def _pids_matching(*needles: str, wine_only: bool = False) -> list[int]:
+        """PIDs whose command line mentions any of the needles (self excluded).
+
+        ``wine_only`` keeps only processes that really are wine/wineserver
+        builds, so a shell that merely mentions the game in its arguments is
+        never touched.
+        """
+        needles = [n for n in needles if n]
+        if not needles:
+            return []
+        self_pid = os.getpid()
+        found: list[int] = []
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            pid = int(entry)
+            if pid == self_pid:
+                continue
             try:
-                process.kill()
+                with open(f"/proc/{entry}/cmdline", "rb") as fh:
+                    cmdline = fh.read().replace(b"\0", b" ").decode(
+                        "utf-8", "replace")
+            except OSError:
+                continue
+            lowered = cmdline.lower()
+            if not any(needle.lower() in lowered for needle in needles):
+                continue
+            if wine_only and not WebApp._is_wine_process(pid):
+                continue
+            found.append(pid)
+        return found
+
+    @staticmethod
+    def _is_wine_process(pid: int) -> bool:
+        """True for the wine/wineserver processes that host a Windows game."""
+        try:
+            exe = os.readlink(f"/proc/{pid}/exe")
+        except OSError:
+            return False
+        name = os.path.basename(exe).lower()
+        return "wine" in name or name.startswith("proton")
+
+    @staticmethod
+    def _signal_pids(pids: list[int], sig: int) -> None:
+        for pid in pids:
+            try:
+                os.kill(pid, sig)
+            except OSError:
+                pass
+
+    def _kill_tree(self, process, name: Optional[str],
+                   executable: str) -> None:
+        import signal
+
+        name = name or ""
+        game = os.path.basename(executable) if executable else ""
+
+        def signal_group(sig: int) -> None:
+            try:
+                os.killpg(os.getpgid(process.pid), sig)
+                return
+            except OSError:
+                pass
+            try:
+                process.send_signal(sig)
             except Exception:
                 pass
-        log_info(f"Stopping {name or 'game'}…")
-        return {"ok": True}
+
+        signal_group(signal.SIGTERM)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline and process.poll() is None:
+            time.sleep(0.15)
+
+        leftovers = self._pids_matching(executable, game, wine_only=True)
+        if process.poll() is None or leftovers:
+            self._shutdown_wineserver(name)
+            deadline = time.monotonic() + 3.0
+            while time.monotonic() < deadline:
+                leftovers = [pid for pid in leftovers
+                             if os.path.exists(f"/proc/{pid}")]
+                if process.poll() is not None and not leftovers:
+                    break
+                time.sleep(0.15)
+
+        if process.poll() is None:
+            signal_group(signal.SIGKILL)
+        alive = [pid for pid in leftovers if os.path.exists(f"/proc/{pid}")]
+        self._signal_pids(alive, signal.SIGKILL)
+        log_info(f"{name or game or 'game'} stopped")
+
+    def _reap(self, pids: list[int], grace: float = 2.5) -> None:
+        import signal
+
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            pids = [pid for pid in pids if os.path.exists(f"/proc/{pid}")]
+            if not pids:
+                return
+            time.sleep(0.15)
+        self._signal_pids(pids, signal.SIGKILL)
+
+    def _shutdown_wineserver(self, name: str) -> None:
+        """Ask the prefix's wineserver to quit, which closes every wine app."""
+        if not name or not self.games.has_section(name):
+            return
+        try:
+            proton = get_proton_executable(name, skip_if_not_found=True)
+            if not proton:
+                return
+            wineserver = os.path.join(os.path.dirname(proton), "files", "bin",
+                                      "wineserver")
+            if not os.path.isfile(wineserver):
+                return
+            from .files_worker import get_proton_prefix_path
+            prefix = get_proton_prefix_path(name, "wine")
+            env = os.environ.copy()
+            env["WINEPREFIX"] = prefix
+            env["WINEDEBUG"] = "-all"
+            subprocess.run([wineserver, "-k"], env=env, timeout=10,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+        except Exception as exc:
+            log_error(f"wineserver shutdown for {name} failed: {exc}")
+
 
     def state(self) -> dict[str, Any]:
         return {
-            "running": GLOBALS.get("currentGameName"),
+            "running": self._running_game_name(),
             "status": GLOBALS.get("launchStatus"),
             "lastError": GLOBALS.get("lastLaunchError"),
             "version": GLOBALS.get("version", "2.7.1"),
@@ -646,15 +824,50 @@ class WebApp:
             return {"ok": False, "error": "no releases found"}
         name, info = next(iter(releases.items()))
         return {"ok": True, "name": name, "url": info.get("url"),
-                "filename": info.get("filename")}
+                "filename": info.get("filename"),
+                "size": int(info.get("size") or 0)}
 
-    def proton_download(self, name: str, url: str) -> dict[str, Any]:
-        """Stream the newest GE-Proton release, extract it into the protons
-        folder and report progress through :meth:`proton_progress`."""
+    def proton_releases(self) -> dict[str, Any]:
+        """Every GE-Proton release the Runners page can install."""
+        from .files_worker import fetch_proton_releases
+        try:
+            releases = fetch_proton_releases()
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+        if not releases:
+            return {"ok": False, "error": "no releases found"}
+        installed = set()
+        try:
+            installed = set(get_installed_protons())
+        except Exception:
+            pass
+        items = []
+        for name, info in releases.items():
+            filename = info.get("filename") or ""
+            folder = os.path.splitext(os.path.splitext(filename)[0])[0]
+            items.append({
+                "name": name,
+                "filename": filename,
+                "folder": folder,
+                "url": info.get("url") or "",
+                "size": int(info.get("size") or 0),
+                "installed": name in installed or folder in installed,
+            })
+        return {"ok": True, "releases": items,
+                "latest": items[0]["name"] if items else None}
+
+    def proton_download(self, name: str, url: str,
+                        size: int = 0) -> dict[str, Any]:
+        """Stream a GE-Proton release, extract it into the protons folder and
+        report progress through :meth:`proton_progress`."""
         if self._dl.get("busy"):
             return {"ok": False, "error": "another download is running"}
-        info = self.proton_latest()
-        url = url or info.get("url") or ""
+        url = url or ""
+        if not url:
+            info = self.proton_latest()
+            url = info.get("url") or ""
+            name = name or info.get("name") or ""
+            size = size or int(info.get("size") or 0)
         if not url:
             return {"ok": False, "error": "no download URL"}
         try:
@@ -665,39 +878,20 @@ class WebApp:
         dest_dir = self.launcher_settings.get_base_path_for("protons")
         filename = os.path.basename(url.split("?")[0]) or (name + ".tar.gz")
         dest = os.path.join(dest_dir, filename)
-        self._dl = {"name": name or info.get("name"), "dest": dest,
-                    "fraction": 0.0, "bytes": 0, "total": 0,
+        self._dl = {"name": name or filename, "dest": dest,
+                    "fraction": 0.0, "bytes": 0, "total": int(size or 0),
                     "done": False, "error": None, "busy": True,
                     "extracting": False, "cancel": threading.Event()}
         cancel = self._dl["cancel"]
 
         def worker():
-            import subprocess
+            tmp = dest + ".part"
             try:
-                request = urllib.request.Request(
-                    url, headers={"User-Agent": "OnlineFix-Linux-Launcher"})
-                with urllib.request.urlopen(request, timeout=60) as response:
-                    total = int(response.headers.get("Content-Length") or 0)
-                    self._dl["total"] = total
-                    tmp = dest + ".part"
-                    with open(tmp, "wb") as fh:
-                        while not cancel.is_set():
-                            chunk = response.read(128 * 1024)
-                            if not chunk:
-                                break
-                            fh.write(chunk)
-                            self._dl["bytes"] += len(chunk)
-                            if total:
-                                self._dl["fraction"] = \
-                                    self._dl["bytes"] / total
-                    if cancel.is_set():
-                        try:
-                            os.remove(tmp)
-                        except OSError:
-                            pass
-                        self._dl.update({"error": "cancelled", "busy": False})
-                        return
-                    os.replace(tmp, dest)
+                tmp = self._download_release(url, dest, cancel)
+                if cancel.is_set():
+                    self._dl.update({"error": "cancelled", "busy": False})
+                    return
+                os.replace(tmp, dest)
                 # extract into its own folder
                 folder = os.path.join(
                     dest_dir,
@@ -715,11 +909,71 @@ class WebApp:
                         pass
                 self._dl.update({"done": True, "fraction": 1.0, "busy": False})
             except Exception as exc:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
                 log_error(f"proton download failed: {exc}")
                 self._dl.update({"error": str(exc), "busy": False})
 
         threading.Thread(target=worker, daemon=True).start()
         return {"ok": True, "dest": dest}
+
+    def _download_release(self, url: str, dest: str,
+                          cancel: threading.Event) -> str:
+        """Fetch a release archive.
+
+        GitHub's asset CDN drops Python's TLS handshake now and then, so curl
+        (which follows the redirect reliably) is used when available and
+        urllib stays as the fallback.
+        """
+        tmp = dest + ".part"
+        curl = shutil.which("curl")
+        if curl:
+            process = subprocess.Popen(
+                [curl, "-L", "--fail", "--silent", "--show-error",
+                 "--retry", "3", "--retry-delay", "2", "--connect-timeout", "30",
+                 "-o", tmp, url],
+                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            while process.poll() is None:
+                if cancel.is_set():
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except Exception:
+                        process.kill()
+                    raise RuntimeError("cancelled")
+                try:
+                    self._dl["bytes"] = os.path.getsize(tmp)
+                except OSError:
+                    pass
+                total = self._dl.get("total") or 0
+                if total:
+                    self._dl["fraction"] = min(1.0, self._dl["bytes"] / total)
+                time.sleep(0.35)
+            error = (process.stderr.read() or b"").decode("utf-8", "replace").strip()
+            if process.returncode != 0:
+                raise RuntimeError(error or f"curl exited with {process.returncode}")
+            return tmp
+
+        request = urllib.request.Request(
+            url, headers={"User-Agent": "OnlineFix-Linux-Launcher"})
+        with urllib.request.urlopen(request, timeout=60) as response:
+            total = int(response.headers.get("Content-Length") or 0)
+            self._dl["total"] = total or self._dl.get("total") or 0
+            with open(tmp, "wb") as fh:
+                while not cancel.is_set():
+                    chunk = response.read(128 * 1024)
+                    if not chunk:
+                        break
+                    fh.write(chunk)
+                    self._dl["bytes"] += len(chunk)
+                    if self._dl["total"]:
+                        self._dl["fraction"] = \
+                            self._dl["bytes"] / self._dl["total"]
+        if cancel.is_set():
+            raise RuntimeError("cancelled")
+        return tmp
 
     @staticmethod
     def _seven_zip_path() -> Optional[str]:

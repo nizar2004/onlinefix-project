@@ -28,9 +28,17 @@ reference mockup:
   | **Library** | Everything in `Games.ini`, empty state, add-a-game entry |
   | **Add a Game** | Native folder picker (zenity/kdialog), folder scan for `.exe`/`.vbs`/`.bat`, `.rar`/`.zip`/`.7z` extraction, name it and add |
   | **Game settings** | Name/rename, executable, folders, Proton version, launch arguments, DLL overrides, environment variables (`KEY=value` lines), WineD3D/Wayland/Steam-overlay/Steam-runtime switches, fake AppID, OnlineFix detection + fake Steam (Spacewar), banner/icon upload, desktop & menu shortcut, open folder, remove |
-  | **Runners** | Installed GE-Proton builds, mark latest, download the newest release with live progress and cancel |
+  | **Runners** | Installed GE-Proton builds, mark latest, download the newest release **or pick any published version** from the release list — live progress and cancel |
   | **Settings** | Folders (games/Protons/prefixes), default runner/Proton/fix, behaviour switches, config folder, classic-UI escape hatch |
   | **Help** | SteamDB / ProtonDB / Proton GE links |
+
+* **Stop really stops** — Proton runs in its own session, so the launcher
+  signals the whole process group, asks the prefix's `wineserver` to quit and
+  reaps the wine processes that hosted the game. Games left over from an
+  earlier launcher session are detected as running, so the Stop button is
+  always there.
+* The cart button opens the OnlineFix website; there is no notification or
+  community page in the launcher.
 
 * Live search, launch/stop, page transitions, staggered entrance
   animations, hover lifts and glows everywhere

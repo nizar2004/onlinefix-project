@@ -276,7 +276,8 @@ def fetch_proton_releases() -> dict[str, dict]:
             break
         if not (name and filename and url):
             continue
-        protons[name] = {"filename": filename, "url": url}
+        protons[name] = {"filename": filename, "url": url,
+                         "size": int(asset.get("size") or 0)}
     return protons
 
 

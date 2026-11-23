@@ -215,7 +215,8 @@ function updatePlayButton() {
   btn.textContent = runningNow ? "Stop"
     : (s.real ? "Play" : "Available now");
   btn.classList.toggle("stop", runningNow);
-  btn.disabled = launchStatus === "preparing";
+  btn.disabled = launchStatus === "preparing" || launchStatus === "stopping";
+  if (launchStatus === "stopping") btn.textContent = "Stopping…";
 }
 
 async function launchGame(name) {
@@ -230,8 +231,10 @@ async function launchGame(name) {
 }
 
 async function stopGame() {
-  const res = await api("/api/stop", {});
+  const name = runningName || (currentGame && currentGame.name) || "";
+  const res = await api("/api/stop", { name });
   toast(res.ok ? "Stopping game…" : (res.error || "Nothing is running"));
+  if (res.ok) launchStatus = "stopping";
   refreshState();
 }
 
@@ -709,16 +712,63 @@ async function downloadLatestProton() {
   const latest = await api("/api/protons/latest");
   if (!latest.ok) { toast(latest.error || "Could not find a release"); return; }
   toast(`Downloading ${latest.name}…`);
-  const res = await api("/api/protons/download",
-    { name: latest.name, url: latest.url });
+  await downloadProton(latest.name, latest.url, latest.size);
+}
+
+async function downloadProton(name, url, size) {
+  const res = await api("/api/protons/download", { name, url, size: size || 0 });
   if (!res.ok) { toast(res.error || "Download failed"); return; }
   $("#runnerProgress").hidden = false;
-  $("#runnerTitle").textContent = `Downloading ${latest.name}`;
+  $("#runnerTitle").textContent = `Downloading ${name}`;
   $("#runnerStatus").textContent = "0%";
   $("#runnerBar").classList.add("pulsing");
   $("#runnerBar").querySelector(".bar").style.width = "0%";
   $("#runnerAddBtn").disabled = true;
+  $("#runnerVersionsBtn").disabled = true;
   startProtonPolling();
+}
+
+/* list every published GE-Proton release so a specific one can be picked */
+async function toggleProtonVersions() {
+  const card = $("#runnerVersions");
+  if (!card.hidden) { card.hidden = true; return; }
+  card.hidden = false;
+  await loadProtonVersions();
+}
+
+async function loadProtonVersions() {
+  const list = $("#runnerVersionsList");
+  list.innerHTML = `<div class="empty-note">Loading releases…</div>`;
+  const res = await api("/api/protons/releases");
+  if (!res.ok) {
+    list.innerHTML = `<div class="empty-note">${esc(res.error || "Could not load the release list")}</div>`;
+    return;
+  }
+  const releases = res.releases || [];
+  if (!releases.length) {
+    list.innerHTML = `<div class="empty-note">No releases found.</div>`;
+    return;
+  }
+  list.innerHTML = releases.map((r) => `
+    <div class="set-row">
+      <div>
+        <div class="set-title">${esc(r.name)}</div>
+        <div class="set-sub">${esc(r.filename || "")}${r.size ? " · " + fmtSize(r.size) : ""}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${r.name === res.latest ? `<span class="scan-badge exe tag-latest">LATEST</span>` : ""}
+        ${r.installed
+          ? `<span class="scan-badge tag-default">INSTALLED</span>`
+          : `<button class="btn btn-ghost" data-proton-name="${esc(r.name)}" data-proton-url="${esc(r.url)}" data-proton-size="${r.size || 0}">Download</button>`}
+      </div>
+    </div>`).join("");
+  list.querySelectorAll("[data-proton-url]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      toast(`Downloading ${btn.dataset.protonName}…`);
+      downloadProton(btn.dataset.protonName, btn.dataset.protonUrl,
+                     Number(btn.dataset.protonSize || 0));
+    });
+  });
 }
 
 function startProtonPolling() {
@@ -742,6 +792,7 @@ function startProtonPolling() {
     if (!p.busy) {
       clearInterval(protonPoll);
       $("#runnerAddBtn").disabled = false;
+      $("#runnerVersionsBtn").disabled = false;
       if (p.error) {
         $("#runnerProgress").hidden = true;
         toast(p.error);
@@ -749,17 +800,20 @@ function startProtonPolling() {
         $("#runnerProgress").hidden = true;
         toast("Runner installed ✔");
         loadProtons();
+        if (!$("#runnerVersions").hidden) loadProtonVersions();
       }
     }
   }, 600);
 }
 
 $("#runnerAddBtn").addEventListener("click", downloadLatestProton);
+$("#runnerVersionsBtn").addEventListener("click", toggleProtonVersions);
 $("#runnerCancelBtn").addEventListener("click", async () => {
   await api("/api/protons/cancel", {});
   clearInterval(protonPoll);
   $("#runnerProgress").hidden = true;
   $("#runnerAddBtn").disabled = false;
+  $("#runnerVersionsBtn").disabled = false;
   toast("Download cancelled");
 });
 
@@ -947,8 +1001,9 @@ $("#winControls").addEventListener("click", (e) => {
 });
 
 /* ── misc buttons ──────────────────────────────────────────────────────── */
-$("#bellBtn").addEventListener("click", () => toast("No new notifications"));
-$("#cartBtn").addEventListener("click", () => toast("Your cart is empty"));
+$("#cartBtn").addEventListener("click", () => {
+  api("/api/open", { kind: "url", target: "https://online-fix.me" });
+});
 $("#learnMore").addEventListener("click", () => toast("Every game you add shows up here"));
 $("#addBtnStore").addEventListener("click", openAddGame);
 

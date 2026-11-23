@@ -37,13 +37,6 @@
         </svg>
         <span>Library</span>
       </a>
-      <a class="nav-item" data-page="community" href="#">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect class="sq" x="2.6" y="2.6" width="18.8" height="18.8" rx="6"/>
-          <path class="cut" d="M8.4 8h7.2A1.9 1.9 0 0 1 17.5 9.9v3.4a1.9 1.9 0 0 1-1.9 1.9h-3.4L9 17.4v-2.2h-.6A1.9 1.9 0 0 1 6.5 13.3V9.9A1.9 1.9 0 0 1 8.4 8z"/>
-        </svg>
-        <span>Community</span>
-      </a>
       <a class="nav-item" data-page="runners" href="#">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <rect class="sq" x="2.6" y="2.6" width="18.8" height="18.8" rx="6"/>
@@ -90,13 +83,7 @@
       </div>
 
       <div class="top-actions">
-        <button class="icon-btn" id="bellBtn" title="Notifications">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 3.6a4.9 4.9 0 0 0-4.9 4.9c0 3.5-1 4.8-1.9 5.7-.4.4-.1 1.1.5 1.1h12.6c.6 0 .9-.7.5-1.1-.9-.9-1.9-2.2-1.9-5.7A4.9 4.9 0 0 0 12 3.6z"/>
-            <path d="M10.2 17.8a1.9 1.9 0 0 0 3.6 0"/>
-          </svg>
-        </button>
-        <button class="icon-btn" id="cartBtn" title="Cart">
+        <button class="icon-btn" id="cartBtn" title="Open the OnlineFix website">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M3.8 4.8h2l2.3 9.6a1.7 1.7 0 0 0 1.7 1.3h6.6a1.7 1.7 0 0 0 1.7-1.3l1.4-6.2H6.8"/>
             <circle cx="10.2" cy="18.9" r="1.25"/>
@@ -181,13 +168,6 @@
       <div class="empty" id="libraryEmpty">
         <p>Your library is empty.<br>Add games you own to organize them<br>and manage their settings.</p>
         <button class="btn-play" id="addBtn2">Add a Game</button>
-      </div>
-    </section>
-
-    <!-- ──────────────────── PAGE · COMMUNITY ──────────────────── -->
-    <section class="page page-plain" id="page-community">
-      <div class="empty">
-        <p>Nothing here yet.<br>Community spaces are on the way.</p>
       </div>
     </section>
 
@@ -370,7 +350,10 @@ Supported archives (.rar / .zip / .7z) get extracted for you.</div>
     <section class="page page-runners" id="page-runners">
       <div class="offers-head">
         <h2>Runners</h2>
-        <button class="btn-add" id="runnerAddBtn">+&nbsp; Download latest runner</button>
+        <div class="btn-row">
+          <button class="btn-add" id="runnerAddBtn">+&nbsp; Download latest runner</button>
+          <button class="btn-add" id="runnerVersionsBtn">Download a version…</button>
+        </div>
       </div>
       <div class="settings-card" id="runnerCard">
         <div id="runnerList"></div>
@@ -382,6 +365,12 @@ Supported archives (.rar / .zip / .7z) get extracted for you.</div>
           </div>
           <button class="btn btn-danger" id="runnerCancelBtn">Cancel</button>
         </div>
+      </div>
+
+      <div class="form-card" id="runnerVersions" hidden>
+        <h3>Available GE-Proton versions</h3>
+        <div class="hint">Every release published by GloriousEggroll. Pick the one you want to install — the latest build is always recommended.</div>
+        <div id="runnerVersionsList"></div>
       </div>
     </section>
 

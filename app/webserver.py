@@ -178,6 +178,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(backend.launcher_config())
         elif route == "/api/protons":
             self._json(backend.installed_protons())
+        elif route == "/api/protons/releases":
+            self._json(backend.proton_releases())
         elif route == "/api/protons/progress":
             self._json(backend.proton_progress())
         elif route == "/api/banner":
@@ -215,7 +217,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._json(backend.launch(name, debug=bool(body.get("debug"))))
         elif route == "/api/stop":
-            self._json(backend.stop())
+            self._json(backend.stop(body.get("name") or None))
         elif route == "/api/open":
             kind = body.get("kind")
             if kind == "url":
@@ -262,10 +264,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json(backend.installed_protons())
         elif route == "/api/protons/latest":
             self._json(backend.proton_latest())
+        elif route == "/api/protons/releases":
+            self._json(backend.proton_releases())
         elif route == "/api/protons/download":
             self._json(backend.proton_download(
                 str(body.get("name") or ""),
-                str(body.get("url") or "")))
+                str(body.get("url") or ""),
+                int(body.get("size") or 0)))
         elif route == "/api/protons/progress":
             self._json(backend.proton_progress())
         elif route == "/api/protons/cancel":
