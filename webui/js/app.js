@@ -1,69 +1,8 @@
 /* OnlineFix Launcher · web UI logic
-   The store page mirrors the reference design; every control is wired to
-   the project's own storage (Games.ini / Launcher.ini) through the local
-   JSON API served by app/webserver.py. */
+   The store page shows only the games the launcher actually manages; every
+   control is wired to the project's own storage (Games.ini / Launcher.ini)
+   through the local JSON API served by app/webserver.py. */
 "use strict";
-
-/* ── demo catalog (the reference design's content) ─────────────────────── */
-const IMG = "/assets/img/";
-const DEMO = [
-  {
-    title: "Stray",
-    desc: "Lost, alone and separated from family, a stray cat must untangle " +
-          "an ancient mystery to escape a long-forgotten cybercity and find " +
-          "their way home.",
-    price: "$16.99 USD",
-    hero: IMG + "stray-hero.jpg",
-    cover: IMG + "stray-hero.jpg",
-    tags: ["Cats", "Adventure", "Cyberpunk", "Atmospheric"],
-    thumbs: [IMG + "stray-thumb1.jpg", IMG + "stray-thumb2.jpg"],
-    demo: true,
-  },
-  {
-    title: "Hogwarts Legacy",
-    desc: "Experience the wizarding world in the 1800s — learn spells, brew " +
-          "potions and face a hidden truth that threatens the magic all around.",
-    price: "$59.99 USD",
-    hero: IMG + "hogwarts.jpg",
-    cover: IMG + "hogwarts-p.jpg",
-    tags: ["Adventure", "Magic", "Open World"],
-    thumbs: [IMG + "hogwarts.jpg"],
-    demo: true,
-  },
-  {
-    title: "Call of Duty: Infinite Warfare",
-    desc: "Take to the stars in a war beyond Earth — dogfights, zero-g " +
-          "combat and a fight for the survival of humanity.",
-    price: "$49.99 USD",
-    hero: IMG + "cod.jpg",
-    cover: IMG + "cod-p.jpg",
-    tags: ["FPS", "Action", "Sci-Fi"],
-    thumbs: [IMG + "cod.jpg"],
-    demo: true,
-  },
-  {
-    title: "FIFA 23",
-    desc: "The world's game — hyper-realistic football with the biggest " +
-          "clubs, players and tournaments on the planet.",
-    price: "$69.99 USD",
-    hero: IMG + "fifa.jpg",
-    cover: IMG + "fifa-p.jpg",
-    tags: ["Sports", "Football", "Multiplayer"],
-    thumbs: [IMG + "fifa.jpg"],
-    demo: true,
-  },
-  {
-    title: "Mass Effect Andromeda",
-    desc: "Lead humanity's fight for a new home in the Andromeda galaxy — " +
-          "a journey to the next frontier of space.",
-    price: "$19.99 USD",
-    hero: IMG + "masseffect.jpg",
-    cover: IMG + "masseffect.jpg",
-    tags: ["RPG", "Sci-Fi", "Space"],
-    thumbs: [IMG + "masseffect.jpg"],
-    demo: true,
-  },
-];
 
 /* ── tiny helpers ──────────────────────────────────────────────────────── */
 const $  = (sel) => document.querySelector(sel);
@@ -209,9 +148,13 @@ function renderSlide(i) {
   plus.addEventListener("click", () => toast("Custom filters are coming soon"));
   chips.appendChild(plus);
 
-  const th = s.thumbs && s.thumbs.length ? s.thumbs : [s.cover];
+  const th = (s.thumbs && s.thumbs.length) ? s.thumbs : [s.cover];
+  const thumbsRow = $("#thumb1").parentElement;
   $("#thumb1").src = th[0] || s.cover;
   $("#thumb2").src = th[1] || th[0] || s.cover;
+  // hide a single lonely thumbnail instead of repeating the same art
+  $("#thumb2").style.display = th.length > 1 ? "" : "none";
+  thumbsRow.style.justifyContent = th.length > 1 ? "" : "flex-start";
 
   $$("#dots .dot").forEach((d, di) => d.classList.toggle("active", di === i));
   updatePlayButton();
@@ -295,10 +238,6 @@ async function stopGame() {
 $("#playBtn").addEventListener("click", async () => {
   const s = slides[slideIndex];
   if (!s) return;
-  if (!s.real) {
-    toast("This is a demo game — add your own games to launch them");
-    return;
-  }
   if (runningName === s.name) await stopGame();
   else await launchGame(s.name);
 });
@@ -308,7 +247,7 @@ function cardHTML(game, idx) {
   const art = game.banner ? artUrl(game.banner, "banner")
                           : (game.icon ? artUrl(game.icon, "icon") : (game.cover || ""));
   const playing = game.name === runningName;
-  const badge = playing ? "RUNNING" : (game.demo ? "DEMO" : "INSTALLED");
+  const badge = playing ? "RUNNING" : "INSTALLED";
   return `
   <div class="card ${playing ? "running" : ""}"
        data-name="${esc(game.name)}"
@@ -340,7 +279,6 @@ function renderGrid(el, list) {
       if (act) {
         e.stopPropagation();
         if (act.dataset.act === "play") {
-          if (!game.real) { toast("This is a demo game"); return; }
           if (runningName === game.name) stopGame();
           else launchGame(game.name);
         } else {
@@ -351,51 +289,50 @@ function renderGrid(el, list) {
       // clicking a card features it in the hero
       const idx = slides.findIndex((s) => s.name === game.name);
       if (idx >= 0) { renderSlide(idx); restartTimer(); }
-      else if (game.demo) toast("Demo game — add your own games to launch them");
     });
   });
-}
-
-function demoAsGames() {
-  return DEMO.map((d) => ({
-    name: d.title, title: d.title, demo: true, cover: d.cover, banner: "",
-  }));
 }
 
 function realAsSlides() {
   return realGames.map((g) => {
     const played = g.timeSpent ? `Played ${fmtTime(g.timeSpent)}` : "Never played";
+    const bannerUrl = g.banner ? artUrl(g.banner, "banner") : "";
+    const iconUrl = g.icon ? artUrl(g.icon, "icon") : "";
+    // the two slots under the info card: banner first, icon as the second
+    const thumbs = [bannerUrl, iconUrl].filter(Boolean);
     return {
       name: g.name, title: g.name, real: true,
-      hero: artUrl(g.banner || g.icon, "banner"),
-      cover: artUrl(g.banner || g.icon, "banner"),
+      hero: bannerUrl || iconUrl,
+      cover: bannerUrl || iconUrl,
       banner: g.banner,
-      tags: ["Installed", g.proton ? "Proton " + g.proton.replace(/^Proton-?/, "") : "Proton"],
+      icon: g.icon,
+      thumbs,
+      tags: ["Installed",
+             g.proton ? "Proton " + g.proton.replace(/^Proton-?/, "") : "Proton"],
       desc: `Installed on your machine · ${played}`,
       price: "In your library",
-      thumbs: g.banner ? [artUrl(g.banner, "banner")] : [],
     };
   });
 }
 
 function renderAll() {
-  // The reference design's catalogue stays the default view; the games from
-  // Games.ini are appended so they can be launched straight from the store.
-  const demoSlides = DEMO.map((d) => ({ ...d, name: d.title }));
-  const realSlides = realAsSlides();
-  slides = [...demoSlides, ...realSlides];
+  // Only the games the launcher manages — no demo catalogue.
+  slides = realAsSlides();
   buildHeroLayers();
   renderSlide(0);
   restartTimer();
 
-  const offers = [
-    ...realGames.map((g) => ({
-      ...g, title: g.name, real: true,
-      cover: artUrl(g.banner || g.icon, "banner"),
-    })),
-    ...demoAsGames().filter((g) => g.name !== demoSlides[0].name),
-  ];
-  renderGrid($("#offers"), offers);
+  const hasGames = realGames.length > 0;
+  $("#storeEmpty").hidden = hasGames;
+  $("#page-store .hero-row").style.display = hasGames ? "" : "none";
+  $("#dots").style.display = hasGames ? "" : "none";
+  $("#page-store .offers-head").style.display = hasGames ? "" : "none";
+  $("#offers").style.display = hasGames ? "" : "none";
+
+  renderGrid($("#offers"), realGames.map((g) => ({
+    ...g, title: g.name, real: true,
+    cover: artUrl(g.banner || g.icon, "banner"),
+  })));
 
   renderLibrary();
   applyFilter($("#searchInput").value);
@@ -921,9 +858,7 @@ async function refreshState() {
       const isRunning = c.dataset.name === runningName;
       c.classList.toggle("running", isRunning);
       const badge = c.querySelector(".card-badge");
-      const isReal = realGames.some((g) => g.name === c.dataset.name);
-      if (badge) badge.textContent = isRunning ? "RUNNING"
-                                  : (isReal ? "INSTALLED" : "DEMO");
+      if (badge) badge.textContent = isRunning ? "RUNNING" : "INSTALLED";
     });
     if (wasRunning && !runningName && st.lastError) {
       toast(st.lastError);
@@ -957,7 +892,8 @@ $("#winControls").addEventListener("click", (e) => {
 /* ── misc buttons ──────────────────────────────────────────────────────── */
 $("#bellBtn").addEventListener("click", () => toast("No new notifications"));
 $("#cartBtn").addEventListener("click", () => toast("Your cart is empty"));
-$("#learnMore").addEventListener("click", () => toast("Special offers refresh every week"));
+$("#learnMore").addEventListener("click", () => toast("Every game you add shows up here"));
+$("#addBtnStore").addEventListener("click", openAddGame);
 
 $$(".thumb").forEach((t) =>
   t.addEventListener("click", () => toast("Screenshot viewer is coming soon")));
